@@ -1,23 +1,42 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import {BarChartIcon, LayersIcon, LeafIcon, LogOutIcon, MenuIcon} from 'lucide-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-
+import { MenuIcon, LeafIcon, LayersIcon, BarChartIcon, LogOutIcon } from 'lucide-react'
+import { logout } from '../app/services/api'  // Import the logout function from your api.ts file
 const menuItems = [
   { name: 'Analizador de Malezas', icon: LeafIcon, href: '/dashboard/analizador-malezas' },
   { name: 'Cobertura', icon: LayersIcon, href: '/dashboard/cobertura' },
   { name: 'Resultados', icon: BarChartIcon, href: '/dashboard/resultados' },
-  { name: 'Cerrar sesión', icon: LogOutIcon, href: '/logout' },
 ]
 
 export default function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async (event: React.MouseEvent) => {
+    event.preventDefault()
+    try {
+      const response = await fetch('/logout', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        router.push('/')
+      } else {
+        const data = await response.json()
+      }
+    } catch (err) {
+    }
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -31,8 +50,8 @@ export default function MobileMenu() {
         <ScrollArea className="h-full px-4">
           <div className="py-4">
             <div className="flex items-center gap-2 px-2 mb-6">
-              <img src="/mi-logo.png" alt="Logo" className="h-13 w-13" />
-              <h1 className="text-xl font-bold text-green-800">AgriPrecision</h1>
+              <img src="/mi-logo.png" alt="Logo" className="h-20 w-20" />
+              <h1 className="text-xl font-bold text-green-800">VIBANO</h1>
             </div>
             <div className="space-y-1">
               {menuItems.map((item) => (
@@ -48,6 +67,14 @@ export default function MobileMenu() {
                   {item.name}
                 </Link>
               ))}
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-3 py-2"
+                onClick={handleLogout}
+              >
+                <LogOutIcon className="h-5 w-5 mr-2" />
+                Cerrar sesión
+              </Button>
             </div>
           </div>
         </ScrollArea>

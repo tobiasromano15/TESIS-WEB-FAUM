@@ -35,16 +35,26 @@ export async function register(username: string, password: string, email: string
 }
 
 export async function logout() {
-  const response = await fetch(`${API_URL}/logout`, {
-    method: 'POST',
-    credentials: 'include',  // Asegúrate de incluir las cookies al cerrar sesión
-  })
+  console.log('Initiating logout from frontend')
+    const response = await fetch(`http://localhost:5000/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    })
 
-  if (!response.ok) {
-    throw new Error('Logout failed')
-  }
+    console.log('Logout response status:', response.status)
 
-  return response.json()
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('Logout error:', response.status, errorData)
+      throw new Error(errorData || 'Logout failed')
+    }
+
+    const data = await response.json()
+    console.log('Logout successful:', data)
+    return data
 }
 
 export async function getDashboardData() {
