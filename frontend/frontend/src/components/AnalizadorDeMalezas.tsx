@@ -7,7 +7,15 @@ import { LeafIcon, UploadIcon, Loader2, ZoomInIcon, ZoomOutIcon, DownloadIcon } 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
+import * as UTIF from 'utif'
 
+declare module 'utif' {
+  export function decode(buffer: ArrayBuffer): any[]
+  export function decodeImage(buffer: ArrayBuffer, img: any): void
+  export function toRGBA8(img: any): Uint8Array
+}
 export default function AnalizadorMalezas() {
   const [imagen, setImagen] = useState<string | null>(null)
   const [puntos, setPuntos] = useState<{ x: number; y: number }[]>([])
@@ -20,24 +28,56 @@ export default function AnalizadorMalezas() {
   const [errorImagen, setErrorImagen] = useState<string | null>(null)
   const [escala, setEscala] = useState(1)
   const imagenAnalizadaRef = useRef<HTMLImageElement>(null)
+  const [minClusters, setMinClusters] = useState(2)
+  const [maxClusters, setMaxClusters] = useState(10)
+  const [transparencia, setTransparencia] = useState(500)
 
-  const manejarCargaImagen = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0]
     if (archivo) {
-      const lector = new FileReader()
-      lector.onload = (e) => {
-        const resultado = e.target?.result
-        if (typeof resultado === 'string') {
-          setImagen(resultado)
-          setPuntos([])
-          setAnalisisCompletado(false)
-          setResultadoAnalisis(null)
-          setImagenAnalizada(null)
-          setErrorImagen(null)
-          setEscala(1)
+      try {
+        setCargando(true)
+        let imagenURL: string
+
+        if (archivo.name.toLowerCase().endsWith('.tif') || archivo.name.toLowerCase().endsWith('.tiff')) {
+          const arrayBuffer = await archivo.arrayBuffer()
+          const ifds = UTIF.decode(arrayBuffer)
+          UTIF.decodeImage(arrayBuffer, ifds[0])
+          const rgba = UTIF.toRGBA8(ifds[0])
+          
+          const canvas = document.createElement('canvas')
+          canvas.width = ifds[0].width
+          canvas.height = ifds[0].height
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            const imageData = ctx.createImageData(canvas.width, canvas.height)
+            imageData.data.set(rgba)
+            ctx.putImageData(imageData, 0, 0)
+            imagenURL = canvas.toDataURL()
+          } else {
+            throw new Error('No se pudo crear el contexto del canvas')
+          }
+        } else {
+          imagenURL = await new Promise((resolve) => {
+            const lector = new FileReader()
+            lector.onload = (e) => resolve(e.target?.result as string)
+            lector.readAsDataURL(archivo)
+          })
         }
+
+        setImagen(imagenURL)
+        setPuntos([])
+        setAnalisisCompletado(false)
+        setResultadoAnalisis(null)
+        setImagenAnalizada(null)
+        setErrorImagen(null)
+        setEscala(1)
+      } catch (error) {
+        console.error('Error al cargar la imagen:', error)
+        setErrorImagen('Error al cargar la imagen. Por favor, intente con otra.')
+      } finally {
+        setCargando(false)
       }
-      lector.readAsDataURL(archivo)
     }
   }
 
@@ -72,7 +112,7 @@ export default function AnalizadorMalezas() {
 
   const dibujarPuntos = (ctx: CanvasRenderingContext2D) => {
     ctx.strokeStyle = 'red'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 9
     puntos.forEach((punto, index) => {
       ctx.beginPath()
       ctx.arc(punto.x, punto.y, 5, 0, 2 * Math.PI)
@@ -152,6 +192,9 @@ export default function AnalizadorMalezas() {
         body: JSON.stringify({
           imagen: imagenData,
           modo: modoAnalisis,
+          minClusters,
+          maxClusters,
+          transparencia: transparencia / 1000,
         }),
       })
 
@@ -222,10 +265,16 @@ export default function AnalizadorMalezas() {
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <UploadIcon className="w-10 h-10 mb-3 text-gray-400" />
                   <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Haga clic para cargar</span> o arrastre y suelte</p>
-                  <p className="text-xs text-gray-500">PNG, JPG o GIF (MAX. 800x400px)</p>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF o TIF</p>
                 </div>
-                <input id="dropzone-file" type="file" className="hidden" onChange={manejarCargaImagen} accept="image/*" />
+                <input id="dropzone-file" type="file" className="hidden" onChange={manejarCargaImagen} accept="image/*,.tif,.tiff" />
               </label>
+            </div>
+          )}
+          {cargando && (
+            <div className="flex justify-center items-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Cargando imagen...</span>
             </div>
           )}
           {imagen && (
@@ -247,6 +296,41 @@ export default function AnalizadorMalezas() {
                   <Label htmlFor="region">Analizar región seleccionada</Label>
                 </div>
               </RadioGroup>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="min-clusters">Cantidad mínima de clusters</Label>
+                  <Input
+                    id="min-clusters"
+                    type="number"
+                    value={minClusters}
+                    onChange={(e) => setMinClusters(Number(e.target.value))}
+                    min={2}
+                    max={maxClusters}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max-clusters">Cantidad máxima de clusters</Label>
+                  <Input
+                    id="max-clusters"
+                    type="number"
+                    value={maxClusters}
+                    onChange={(e) => setMaxClusters(Number(e.target.value))}
+                    min={minClusters}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="transparencia">Transparencia</Label>
+                  <Slider
+                    id="transparencia"
+                    min={0}
+                    max={1000}
+                    step={1}
+                    value={[transparencia]}
+                    onValueChange={(value) => setTransparencia(value[0])}
+                  />
+                  <span className="text-sm text-gray-500">{transparencia / 10}%</span>
+                </div>
+              </div>
               <div className="flex space-x-2">
                 <Button onClick={reiniciarSeleccion} variant="destructive">
                   Reiniciar Selección
@@ -256,14 +340,13 @@ export default function AnalizadorMalezas() {
                   variant="default"
                   disabled={modoAnalisis === 'region' && puntos.length !== 4 || cargando}
                 >
-                  {cargando ? (
+                  {cargando ?
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Analizando...
-                    </>
-                  ) : (
+                    </> :
                     `Analizar ${modoAnalisis === 'completo' ? 'Imagen Completa' : 'Región'}`
-                  )}
+                  }
                 </Button>
               </div>
               {modoAnalisis === 'region' && (
@@ -330,7 +413,6 @@ export default function AnalizadorMalezas() {
                           onClick={() => setEscala(prev => Math.min(5, prev + 0.1))}
                           variant="outline"
                           size="icon"
-
                           className="ml-2"
                         >
                           <ZoomInIcon className="h-4 w-4" />
