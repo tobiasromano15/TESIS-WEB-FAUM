@@ -2,7 +2,7 @@ import imghdr
 import os
 import subprocess
 from datetime import datetime
-
+import FaumPipe
 from PIL import Image
 import io
 import base64
@@ -101,7 +101,8 @@ def analizar_malezas():
     data = request.json
     modo = data.get('modo')
     imagen_data = data.get('imagen')
-
+    min_cluster = data.get('min')
+    max_cluster = data.get('max')
     if not imagen_data:
         return jsonify({'error': 'No se proporcionó imagen'}), 400
 
@@ -141,13 +142,16 @@ def analizar_malezas():
         else:
             return jsonify({'error': 'Modo de análisis no válido'}), 400
 
-        # Aquí iría tu lógica de análisis de malezas
-        # Por ahora, simularemos un resultado
+
         resultado = imagen
-        analizar_imagen()
-        imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output.jpeg'
+        if image_format == 'tif':
+            FaumPipe.analizar_imagen_tiff(min_cluster,max_cluster)
+            imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output.tif'
+        else:
+            FaumPipe.analizar_imagen_jpeg(min_cluster,max_cluster)
+            imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output.jpeg'
         imagen_analizada_filepath = os.path.join(UPLOAD_FOLDER, imagen_analizada_filename)
-        #imagen.save(imagen_analizada_filepath)
+
         return jsonify({
             'mensaje': f'Análisis completado en modo {modo}. {resultado}',
             'detalles': {
@@ -159,6 +163,43 @@ def analizar_malezas():
         })
     except Exception as e:
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+
+
+@app.route('/aplicar-mascara', methods=['POST'])
+@login_required
+def aplicar_mascara():
+    try:
+        data = request.json
+        print(data)
+        mascaras_activas = data.get('mascaras')
+        color_fondo = data.get('color')
+        transparencia = data.get('transparencia')
+        mascaras_str = ",".join(map(str, mascaras_activas))
+        print(transparencia, mascaras_str, color_fondo)
+        color_fondo = color_fondo.replace('#','')
+        FaumPipe.aplicar_mascara(transparencia,mascaras_str,color_fondo)
+        imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output_mask.jpeg'
+        return jsonify({
+            'mensaje': f'Análisis completado en modo',
+            'detalles': {
+                'mascaracas activas': mascaras_activas,
+                'archivo_analizado': imagen_analizada_filename
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/aplicar-mascara/<filename>', methods=['GET'])
+def get_masked_image(filename):
+    try:
+        file_path = os.path.join('C:/Users/Tobi/Desktop/volumen/tmp', filename)
+        return send_file(file_path, mimetype='image/jpeg')
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/imagen-analizada/<filename>', methods=['GET'])
 @login_required
 def obtener_imagen_analizada(filename):
@@ -185,30 +226,6 @@ def microservicio1():
 @login_required
 def microservicio2():
     return jsonify({"message": "Microservicio 2 content"})
-
-def analizar_imagen():
-        comando1 = '/app/fotos/jpgtopnm.sh /app/fotos/tmp/input.jpeg /app/fotos/tmp/input.pam'
-        faum_command = f"faum -o /app/fotos/tmp/salida.pnm /app/fotos/tmp/input.pam"
-        comando2 = 'pnmtojpeg /app/fotos/tmp/salida.pnm > /app/fotos/tmp/output.jpeg'
-        container_id = '7362cd742238'
-        ejecutar_comando_en_contenedor(container_id, comando1)
-        ejecutar_comando_en_contenedor(container_id, faum_command)
-        ejecutar_comando_en_contenedor(container_id, comando2)
-
-def ejecutar_comando_en_contenedor(container_id, comando):
-    try:
-        # Ejecutar el comando dentro del contenedor usando docker exec
-        result = subprocess.run(
-            ["docker", "exec", container_id, "bash", "-c", comando],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        # Capturar y mostrar la salida
-        print("Salida:", result.stdout.decode("utf-8"))
-        print("Errores:", result.stderr.decode("utf-8"))
-    except subprocess.CalledProcessError as e:
-        print("Error al ejecutar el comando:", e.stderr.decode("utf-8"))
 
 if __name__ == '__main__':
     with app.app_context():
