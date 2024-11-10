@@ -314,7 +314,16 @@ export default function AnalizadorMalezas() {
       document.body.removeChild(link)
     }
   }
-
+  const descargarImagenSinMascara = () => {
+    if (imagenAnalizada.original) {
+      const link = document.createElement('a')
+      link.href = imagenAnalizada.original
+      link.download = 'imagen_original.jpg'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
   const manejarMascaraActiva = (numero: number) => {
     setMascarasActivas(prev =>
       prev.includes(numero)
@@ -484,7 +493,7 @@ export default function AnalizadorMalezas() {
                             <ZoomInIcon className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Button onClick={descargarImagen} variant="outline">
+                        <Button onClick={descargarImagenSinMascara} variant="outline">
                           <DownloadIcon className="mr-2 h-4 w-4" />
                           Descargar
                         </Button>

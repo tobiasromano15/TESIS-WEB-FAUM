@@ -94,7 +94,7 @@ UPLOAD_FOLDER = 'C:/Users/Tobi/Desktop/volumen/tmp'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-
+image_format = ''
 @app.route('/analizar-malezas', methods=['POST'])
 @login_required
 def analizar_malezas():
@@ -103,6 +103,7 @@ def analizar_malezas():
     imagen_data = data.get('imagen')
     min_cluster = data.get('min')
     max_cluster = data.get('max')
+    global image_format
     if not imagen_data:
         return jsonify({'error': 'No se proporcionó imagen'}), 400
 
@@ -177,7 +178,7 @@ def aplicar_mascara():
         mascaras_str = ",".join(map(str, mascaras_activas))
         print(transparencia, mascaras_str, color_fondo)
         color_fondo = color_fondo.replace('#','')
-        FaumPipe.aplicar_mascara(transparencia,mascaras_str,color_fondo)
+        FaumPipe.aplicar_mascara_jpeg(transparencia,mascaras_str,color_fondo)
         imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output_mask.jpeg'
         return jsonify({
             'mensaje': f'Análisis completado en modo',

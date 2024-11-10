@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { LeafIcon, LayersIcon, BarChartIcon, LogOutIcon } from 'lucide-react'
 import MobileMenu from '@/components/MobileMenu'
 import AnalizadorMalezas from '@/components/AnalizadorDeMalezas'
-import { logout } from '../services/api'  // Import the logout function from your api.ts file
+import { logout } from '../services/api'
 
 const menuItems = [
   { name: 'Analizador de Malezas', icon: LeafIcon, href: '/dashboard/analizador-malezas' },
@@ -28,7 +28,6 @@ function SidebarContent() {
       router.push('/')
     } catch (error) {
       console.error('Logout failed:', error)
-      // Handle error (e.g., show a notification to the user)
     }
   }
 
@@ -60,16 +59,17 @@ function SidebarContent() {
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-green-50 to-green-100">
       <aside className="hidden w-64 overflow-y-auto border-r border-green-200 bg-white/80 backdrop-blur-sm lg:block">
         <nav className="flex flex-col p-4">
           <div className="py-1">
-            <div className="flex items-center gap-1 px-0.01 mb-6">
+            <Link href="/dashboard" className="flex items-center gap-1 px-0.01 mb-6">
               <img src="/mi-logo.png" alt="Logo" className="h-20 w-20" />
               <h1 className="text-xl font-bold text-green-800">VIBANO</h1>
-            </div>
+            </Link>
             <SidebarContent />
           </div>
         </nav>
@@ -80,7 +80,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex-1">
             <h1 className="text-lg font-semibold text-green-800">Panel de Usuario</h1>
           </div>
-          <Button variant="outline" className="hidden sm:flex">
+          <Button
+            variant="outline"
+            className="hidden sm:flex"
+            onClick={() => router.push('/dashboard/analizador-malezas')}
+          >
             <LeafIcon className="mr-2 h-4 w-4" />
             Nuevo Análisis
           </Button>
