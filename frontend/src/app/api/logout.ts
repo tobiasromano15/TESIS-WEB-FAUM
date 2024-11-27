@@ -5,7 +5,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Logout request received in Next.js API route')
     try {
       // Call your backend logout endpoint
-      const response = await fetch('http://localhost:5000/logout', {
+      const response = await fetch('http://backend:5000/logout', {
         method: 'POST',
         headers: {
           'Cookie': req.headers.cookie || '',

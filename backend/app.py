@@ -217,18 +217,8 @@ def verificar_imagen(filename):
     else:
         return jsonify({'status': 'processing'})
 
-@app.route('/microservicio1')
-@login_required
-def microservicio1():
-    return jsonify({"message": "Microservicio 1 content"})
-
-
-@app.route('/microservicio2')
-@login_required
-def microservicio2():
-    return jsonify({"message": "Microservicio 2 content"})
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

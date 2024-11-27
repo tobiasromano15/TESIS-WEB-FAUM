@@ -2,7 +2,8 @@ import imghdr
 import os
 import subprocess
 container_id = '7362cd742238'
-
+container_id = os.getenv("SERVICE_CONTAINER_ID")
+print(f"Service Container ID: {container_id}")
 
 
 def analizar_imagen_jpeg(mincluster,maxcluster):

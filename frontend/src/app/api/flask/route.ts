@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 
-const FLASK_URL = 'http://localhost:5000'  // Ajusta esto a la URL de tu servidor Flask
+const FLASK_URL = 'http://backend:5000'  // Ajusta esto a la URL de tu servidor Flask
 
 async function handler(request: NextRequest) {
   const url = new URL(request.url)
