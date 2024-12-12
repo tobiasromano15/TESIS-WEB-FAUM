@@ -33,8 +33,8 @@ services:
       dockerfile: Dockerfile
       network: host
     container_name: service
-
     volumes:
+      - /c/users/Tobi/Desktop/volumen:/app/fotos
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SERVICE_CONTAINER_ID=${HOSTNAME} # Esto expone el ID al backend
