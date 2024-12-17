@@ -4,15 +4,18 @@ import { ReactNode, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from "@/components/ui/button"
-import { LeafIcon, LayersIcon, BarChartIcon, LogOutIcon } from 'lucide-react'
+import {LeafIcon, LayersIcon, BarChartIcon, LogOutIcon, MapPin, Image, Database} from 'lucide-react'
 import MobileMenu from '@/components/MobileMenu'
 import AnalizadorMalezas from '@/components/AnalizadorDeMalezas'
 import { logout } from '../services/api'
+import {frame} from "framer-motion";
 
 const menuItems = [
   { name: 'Analizador de Malezas', icon: LeafIcon, href: '/dashboard/analizador-malezas' },
   { name: 'Cobertura', icon: LayersIcon, href: '/dashboard/cobertura' },
-  { name: 'Resultados', icon: BarChartIcon, href: '/dashboard/resultados' },
+  { name: 'ODM - Ortomosaico', icon: Image, href: '/dashboard/odm' },
+  { name: 'Mapa de Prescripcion', icon: MapPin, href: '/dashboard/mapa-prescripcion' },
+  { name: 'Almacenamiento', icon: Database, href: '/dashboard/almacenamiento' },
 ]
 
 function SidebarContent() {

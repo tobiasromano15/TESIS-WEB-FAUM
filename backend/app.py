@@ -1,19 +1,26 @@
 import imghdr
 import os
+import shutil
 import subprocess
+import traceback
 from datetime import datetime
 import FaumPipe
 from PIL import Image
 import io
 import base64
 import numpy as np
-
-from flask import Flask, jsonify, request, session, send_file
+import requests
+from flask import Flask, jsonify, request, session, send_file, stream_with_context, Response, logging
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User
+from werkzeug.utils import secure_filename
+import uuid
+from pyodm import Node
+import json
+
 
 # Inicializar la app Flask
 app = Flask(__name__)
@@ -216,6 +223,170 @@ def verificar_imagen(filename):
         return jsonify({'status': 'ready'})
     else:
         return jsonify({'status': 'processing'})
+
+#STORAGE-------------------------------
+STORAGE_FOLDER = 'user_storage'
+if not os.path.exists(STORAGE_FOLDER):
+    os.makedirs(STORAGE_FOLDER)
+
+
+@app.route('/storage', methods=['GET'])
+@login_required
+def get_user_storage():
+    path = request.args.get('path', '')
+    user_storage_dir = os.path.join(STORAGE_FOLDER, str(current_user.id))
+    current_dir = os.path.join(user_storage_dir, path)
+
+    if not os.path.exists(current_dir) or not current_dir.startswith(user_storage_dir):
+        return jsonify({'error': 'Invalid path'}), 400
+
+    storage_items = []
+    for item in os.listdir(current_dir):
+        item_path = os.path.join(current_dir, item)
+        relative_path = os.path.relpath(item_path, user_storage_dir)
+        if os.path.isfile(item_path):
+            storage_items.append({
+                'id': relative_path,
+                'name': item,
+                'type': 'file',
+                'size': os.path.getsize(item_path),
+                'lastModified': os.path.getmtime(item_path),
+                'path': relative_path
+            })
+        elif os.path.isdir(item_path):
+            storage_items.append({
+                'id': relative_path,
+                'name': item,
+                'type': 'folder',
+                'size': get_folder_size(item_path),
+                'lastModified': os.path.getmtime(item_path),
+                'path': relative_path
+            })
+
+    return jsonify(storage_items)
+
+
+def get_folder_size(folder_path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_size += os.path.getsize(fp)
+    return total_size
+
+
+@app.route('/storage/upload', methods=['POST'])
+@login_required
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    path = request.form.get('path', '')
+    user_storage_dir = os.path.join(STORAGE_FOLDER, str(current_user.id))
+    save_path = os.path.join(user_storage_dir, path)
+
+    if not os.path.exists(save_path) or not save_path.startswith(user_storage_dir):
+        return jsonify({'error': 'Invalid path'}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(save_path, filename))
+        return jsonify({'message': 'File uploaded successfully'}), 200
+
+
+@app.route('/storage/folder', methods=['POST'])
+@login_required
+def create_folder():
+    data = request.json
+    folder_name = data.get('name')
+    path = data.get('path', '')
+
+    if not folder_name:
+        return jsonify({'error': 'Folder name is required'}), 400
+
+    user_storage_dir = os.path.join(STORAGE_FOLDER, str(current_user.id))
+    new_folder_path = os.path.join(user_storage_dir, path, folder_name)
+
+    if not new_folder_path.startswith(user_storage_dir):
+        return jsonify({'error': 'Invalid path'}), 400
+
+    if os.path.exists(new_folder_path):
+        return jsonify({'error': 'Folder already exists'}), 400
+
+    os.makedirs(new_folder_path)
+    return jsonify({'message': 'Folder created successfully'}), 200
+
+
+@app.route('/storage/<path:item_path>', methods=['DELETE'])
+@login_required
+def delete_item(item_path):
+    user_storage_dir = os.path.join(STORAGE_FOLDER, str(current_user.id))
+    full_path = os.path.join(user_storage_dir, item_path)
+
+    if not os.path.exists(full_path) or not full_path.startswith(user_storage_dir):
+        return jsonify({'error': 'Invalid path'}), 400
+
+    if os.path.isfile(full_path):
+        os.remove(full_path)
+    elif os.path.isdir(full_path):
+        shutil.rmtree(full_path)
+    else:
+        return jsonify({'error': 'Item not found'}), 404
+
+    return jsonify({'message': 'Item deleted successfully'}), 200
+#ODM --------------------------------
+
+
+NODEODM_URL = "http://localhost:8000"  # URL de NodeODM
+
+
+# Verificar autenticación
+@app.route('/check-auth', methods=['GET'])
+def check_auth():
+    # Lógica de autenticación (modifícala según tu app)
+    if request.cookies.get('session_id'):  # Ejemplo con cookies
+        return jsonify({"status": "authenticated"}), 200
+    return jsonify({"status": "unauthenticated"}), 401
+
+
+# Proxy a la interfaz de NodeODM
+@app.route('/odm-proxy/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_nodeodm(subpath):
+    try:
+        # Construir la URL final hacia NodeODM
+        url = f"{NODEODM_URL}/{subpath}"
+
+        # Redirigir la solicitud original al servidor NodeODM
+        if request.method == 'GET':
+            response = requests.get(url, params=request.args)
+        elif request.method == 'POST':
+            response = requests.post(url, data=request.form, files=request.files)
+        elif request.method == 'PUT':
+            response = requests.put(url, data=request.data)
+        elif request.method == 'DELETE':
+            response = requests.delete(url)
+        else:
+            return jsonify({"error": "Método HTTP no soportado"}), 405
+
+        # Devolver la respuesta de NodeODM al cliente
+        return Response(response.content, status=response.status_code,
+                        content_type=response.headers.get('Content-Type'))
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": "Error al conectar con NodeODM", "details": str(e)}), 500
+
+
+# Prueba de conexión a NodeODM
+@app.route('/test-odm-connection', methods=['GET'])
+def test_odm_connection():
+    try:
+        response = requests.get(f"{NODEODM_URL}/api/status")
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"error": "No se pudo conectar a NodeODM", "details": str(e)}), 500
 
 
 if __name__ == '__main__':
