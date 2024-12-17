@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ODMChatbot from './odm-chatbot'
 
-const ODM_URL = 'http://localhost:8000' // URL de la interfaz ODM
+const ODM_URL = 'http://localhost:8000'
 
 export default function ODMProcessing() {
   const [error, setError] = useState<string | null>(null)
@@ -35,16 +35,18 @@ export default function ODMProcessing() {
   }
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-2xl font-bold text-green-800 mb-4">Procesamiento ODM</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+      <div className="rounded-lg overflow-hidden shadow-sm">
+        <div className="bg-green-600 text-white p-4">
+          <h2 className="text-xl font-semibold">Interfaz ODM</h2>
+        </div>
         <iframe
           src={ODM_URL}
-          className="w-full h-[600px] border-none"
+          className="w-full h-[600px] border-none bg-white"
           title="NodeODM Interface"
         />
-        <ODMChatbot />
       </div>
+      <ODMChatbot />
     </div>
   )
 }
