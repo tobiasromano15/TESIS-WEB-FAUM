@@ -20,6 +20,7 @@ from werkzeug.utils import secure_filename
 import uuid
 from pyodm import Node
 import json
+from analizadorMaleza.hay_surcos import hay_surcos
 
 
 # Inicializar la app Flask
@@ -97,9 +98,15 @@ def logout():
     logout_user()
     return jsonify({"message": "Logged out successfully"}), 200
 
-UPLOAD_FOLDER = 'C:/Users/Tobi/Desktop/volumen/tmp'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+
+def get_user_upload_folder():
+    base_path = './user_storage'
+    user_folder = os.path.join(base_path, str(current_user.id))
+    upload_folder = os.path.join(user_folder, 'ResultadosFaum')
+    # Crear las carpetas si no existen
+    os.makedirs(user_folder, exist_ok=True)       # Crea la carpeta del usuario si no existe
+    os.makedirs(upload_folder, exist_ok=True)     # Crea la carpeta 'tmp' del usuario si no existe
+    return upload_folder
 
 image_format = ''
 @app.route('/analizar-malezas', methods=['POST'])
@@ -111,6 +118,7 @@ def analizar_malezas():
     min_cluster = data.get('min')
     max_cluster = data.get('max')
     global image_format
+    UPLOAD_FOLDER = get_user_upload_folder()
     if not imagen_data:
         return jsonify({'error': 'No se proporcionó imagen'}), 400
 
@@ -153,11 +161,11 @@ def analizar_malezas():
 
         resultado = imagen
         if image_format == 'tif':
-            FaumPipe.analizar_imagen_tiff(min_cluster,max_cluster)
-            imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output.tif'
+            FaumPipe.analizar_imagen_tiff(min_cluster,max_cluster,UPLOAD_FOLDER)
+            magen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output.tif')
         else:
-            FaumPipe.analizar_imagen_jpeg(min_cluster,max_cluster)
-            imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output.jpeg'
+            FaumPipe.analizar_imagen_jpeg(min_cluster,max_cluster,UPLOAD_FOLDER)
+            imagen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output.jpeg')
         imagen_analizada_filepath = os.path.join(UPLOAD_FOLDER, imagen_analizada_filename)
 
         return jsonify({
@@ -185,8 +193,9 @@ def aplicar_mascara():
         mascaras_str = ",".join(map(str, mascaras_activas))
         print(transparencia, mascaras_str, color_fondo)
         color_fondo = color_fondo.replace('#','')
-        FaumPipe.aplicar_mascara_jpeg(transparencia,mascaras_str,color_fondo)
-        imagen_analizada_filename = 'C:/Users/Tobi/Desktop/volumen/tmp/output_mask.jpeg'
+        UPLOAD_FOLDER = get_user_upload_folder()
+        FaumPipe.aplicar_mascara_jpeg(transparencia,mascaras_str,color_fondo,UPLOAD_FOLDER)
+        imagen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output_mask.jpeg')         
         return jsonify({
             'mensaje': f'Análisis completado en modo',
             'detalles': {
@@ -200,7 +209,8 @@ def aplicar_mascara():
 @app.route('/aplicar-mascara/<filename>', methods=['GET'])
 def get_masked_image(filename):
     try:
-        file_path = os.path.join('C:/Users/Tobi/Desktop/volumen/tmp', filename)
+        UPLOAD_FOLDER = get_user_upload_folder()
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
         return send_file(file_path, mimetype='image/jpeg')
     except FileNotFoundError:
         return jsonify({'error': 'File not found'}), 404
@@ -225,7 +235,7 @@ def verificar_imagen(filename):
         return jsonify({'status': 'processing'})
 
 #STORAGE-------------------------------
-STORAGE_FOLDER = 'user_storage'
+STORAGE_FOLDER = '/app/user_storage'
 if not os.path.exists(STORAGE_FOLDER):
     os.makedirs(STORAGE_FOLDER)
 
@@ -340,7 +350,7 @@ def delete_item(item_path):
 #ODM --------------------------------
 
 
-NODEODM_URL = "http://localhost:8000"  # URL de NodeODM
+NODEODM_URL = "http://opendronemap:8000"  # URL de NodeODM
 
 
 # Verificar autenticación
@@ -387,6 +397,35 @@ def test_odm_connection():
         return jsonify(response.json())
     except Exception as e:
         return jsonify({"error": "No se pudo conectar a NodeODM", "details": str(e)}), 500
+
+# Analizador -----------------------------------------------------------------
+@app.route('/clasificar-cultivo', methods=['POST'])
+def clasificar_cultivo():
+    try:
+        # Obtener la imagen del cuerpo de la solicitud
+        imagen_base64 = request.json['imagen']
+        
+        # Decodificar la imagen base64
+        imagen_bytes = base64.b64decode(imagen_base64.split(',')[1])
+        
+        # Convertir bytes a numpy array
+        nparr = np.frombuffer(imagen_bytes, np.uint8)
+        
+        # Decodificar el array numpy a una imagen OpenCV
+        imagen = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if imagen is None:
+            return jsonify({"error": "No se pudo procesar la imagen"}), 400
+
+        # Analizar la imagen
+        resultado = hay_surcos(imagen)
+
+        # Devolver el resultado
+        return jsonify({"esPostemergente": resultado})
+
+    except Exception as e:
+        print(f"Error en la clasificación del cultivo: {str(e)}")
+        return jsonify({"error": "Error en la clasificación del cultivo"}), 500
 
 
 if __name__ == '__main__':

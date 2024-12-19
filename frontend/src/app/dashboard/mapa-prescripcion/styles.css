@@ -1,0 +1,51 @@
+.prescription-map-container {
+    background-color: #f0f9ff;
+    min-height: 100vh;
+  }
+  
+  .map-card {
+    transition: all 0.3s ease;
+  }
+  
+  .map-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+  
+  .todo-list-card {
+    transition: all 0.3s ease;
+  }
+  
+  .todo-list-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+  
+  .todo-item {
+    transition: all 0.2s ease;
+  }
+  
+  .todo-item:hover {
+    background-color: #e0f2fe;
+  }
+  
+  .add-todo-button {
+    background-color: #10b981;
+    color: white;
+    transition: all 0.2s ease;
+  }
+  
+  .add-todo-button:hover {
+    background-color: #059669;
+  }
+  
+  .delete-todo-button {
+    color: #ef4444;
+    transition: all 0.2s ease;
+  }
+  
+  .delete-todo-button:hover {
+    color: #dc2626;
+  }
+  
+  

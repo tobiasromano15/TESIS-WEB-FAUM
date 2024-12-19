@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ODMChatbot from './odm-chatbot'
 
-const ODM_URL = 'http://localhost:8000'
+const ODM_URL = 'http://localhost:3000'
 
 export default function ODMProcessing() {
   const [error, setError] = useState<string | null>(null)

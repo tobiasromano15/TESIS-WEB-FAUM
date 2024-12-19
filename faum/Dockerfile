@@ -12,4 +12,5 @@ WORKDIR /app/faum-code
 RUN ./configure && make && make install
 
 # Definir un volumen para las fotos
-VOLUME ["/app/fotos"]
+VOLUME ["/app/user_storage"]
+CMD ["tail", "-f", "/dev/null"]

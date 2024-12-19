@@ -36,7 +36,7 @@ export async function register(username: string, password: string, email: string
 
 export async function logout() {
   console.log('Initiating logout from frontend')
-    const response = await fetch(`http://backend:5000/logout`, {
+    const response = await fetch(`${API_URL}/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

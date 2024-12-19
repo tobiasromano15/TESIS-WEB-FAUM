@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Expone el puerto 3000 para el servidor Next.js
-EXPOSE 3000
+EXPOSE 3001
 
 # Comando para ejecutar el servidor de desarrollo de Next.js
-CMD ["npx", "next", "dev"]
+CMD ["npx", "next", "dev", "-p", "3001"]

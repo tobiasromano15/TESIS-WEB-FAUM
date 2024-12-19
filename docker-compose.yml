@@ -10,10 +10,21 @@ services:
       - "5000:5000"
     networks:
       - app-network
+    volumes:
+      - user_storage:/app/user_storage
     environment:
       - SERVICE_CONTAINER_ID=${SERVICE_CONTAINER_ID}
     depends_on:
       - service
+
+
+  opendronemap:
+    image: opendronemap/nodeodm:latest
+    container_name: opendronemap
+    ports:
+      - "3000:3000"
+    depends_on:
+      - frontend
 
   frontend:
     build:
@@ -21,7 +32,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     depends_on:
       - backend
     networks:
@@ -34,7 +45,7 @@ services:
       network: host
     container_name: service
     volumes:
-      - /c/users/Tobi/Desktop/volumen:/app/fotos
+      - user_storage:/app/user_storage
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SERVICE_CONTAINER_ID=${HOSTNAME} # Esto expone el ID al backend
@@ -43,3 +54,5 @@ services:
 networks:
   app-network:
     driver: bridge
+volumes:
+  user_storage: 

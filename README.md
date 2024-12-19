@@ -7,3 +7,10 @@ Durante los últimos años, la masificación del uso de drones equipados con sen
 La detección de malezas utilizando drones sin aprendizaje automático emplea varias técnicas de procesamiento de imágenes que permiten identificar diferencias entre cultivos y malezas. Entre las más comunes están el análisis de firmas espectrales y texturas, utilizando cámaras RGB o multiespectrales. Estas cámaras capturan imágenes en distintas longitudes de onda, lo que permite a los algoritmos tradicionales de procesamiento de imágenes identificar malezas en función de su reflectancia y características morfológicas. Además, se aplican métodos como la segmentación por tamaño y forma para distinguir las malezas de los cultivos. [IntechOpen, 2021. Application of Digital Image Processing Techniques for Agriculture,
 SpringerOpen, 2021. Drone and Sensor Technology for Sustainable Weed Management]
 En este contexto, este trabajo se dirige a usuarios como los agricultores, ingenieros agrónomos y profesionales del sector agrícola que buscan una solución intuitiva y automatizada para el análisis de imágenes de campos de cultivo sin la utilización de modelos de aprendizaje automático y que no tienen acceso a una cámara multi o  hiper-espectral. A su vez se busca que estos usuarios puedan registrar y utilizar sus imágenes y análisis previos.
+
+
+
+- PARA EJECUTAR:
+
+docker-compose down -v --rmi all  ->  Borra contenedores e imagenes con configs viejas.
+docker-compose up --build -> Buildea y levanta
