@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Database, File, Folder, MoreVertical, Plus, Upload, ChevronLeft } from 'lucide-react'
+import { Database, File, Folder, MoreVertical, Plus, Upload, ChevronLeft, Download } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -17,7 +17,7 @@ interface StorageItem {
   path: string;
 }
 
-const API_URL = '/api'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function Almacenamiento() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -137,6 +137,32 @@ export default function Almacenamiento() {
     }
   }
 
+  const handleDownload = async (item: StorageItem) => {
+    try {
+      const response = await fetch(`${API_URL}/storage/download?path=${encodeURIComponent(item.path)}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to download file');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo descargar el archivo. Por favor, intente de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleFolderClick = (folderPath: string) => {
     setCurrentPath(folderPath)
   }
@@ -231,7 +257,12 @@ export default function Almacenamiento() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Descargar</DropdownMenuItem>
+                      {item.type === 'file' && (
+                        <DropdownMenuItem onClick={() => handleDownload(item)}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Descargar
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem>Renombrar</DropdownMenuItem>
                       <DropdownMenuItem>Mover</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDeleteItem(item.id)} className="text-red-600">

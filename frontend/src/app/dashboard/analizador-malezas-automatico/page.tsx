@@ -1,4 +1,4 @@
-import SimplifiedAnalizadorMalezas from '@/components/SimplifiedAnalizadorMalezas'
+import SimplifiedAnalizadorMalezas from '@/components/AnalizadorMalezasAutomatico'
 
 export default function AnalizadorMalezasPage() {
   return (

@@ -601,6 +601,7 @@ export default function AnalizadorMalezas() {
                       <img
                         ref={imagenMascaraRef}
                         src={imagenAnalizada.conMascara}
+
                         alt="Imagen con Máscara Aplicada"
                         className="max-w-full h-auto rounded-lg shadow-lg transition-transform duration-200 ease-in-out"
                         style={{
@@ -608,6 +609,7 @@ export default function AnalizadorMalezas() {
                           transformOrigin: 'center center'
                         }}
                         onError={(e) => {
+                          console.log('Ruta de la imagen con máscara:', imagenAnalizada.conMascara);
                           console.error('Error al cargar la imagen con máscara:', e)
                           setErrorImagen('Error al cargar la imagen con máscara aplicada')
                         }}

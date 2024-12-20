@@ -12,6 +12,7 @@ services:
       - app-network
     volumes:
       - user_storage:/app/user_storage
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SERVICE_CONTAINER_ID=${SERVICE_CONTAINER_ID}
     depends_on:
@@ -51,6 +52,9 @@ services:
       - SERVICE_CONTAINER_ID=${HOSTNAME} # Esto expone el ID al backend
     dns:
       - 8.8.8.8
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge

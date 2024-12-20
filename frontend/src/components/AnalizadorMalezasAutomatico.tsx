@@ -3,8 +3,18 @@
 import React, { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { LeafIcon, UploadIcon, Loader2 } from 'lucide-react'
+import { LeafIcon, UploadIcon, Loader2, SprayCanIcon as SprayIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+interface FaumResponse {
+  imagen: Blob;
+  metadata: {
+    fecha: string;
+    hora: string;
+    timestamp: string;
+    nombre_archivo: string;
+  };
+}
 
 export default function SimplifiedAnalizadorMalezas() {
   const [imagen, setImagen] = useState<string | null>(null)
@@ -12,6 +22,15 @@ export default function SimplifiedAnalizadorMalezas() {
   const [errorImagen, setErrorImagen] = useState<string | null>(null)
   const [clasificacion, setClasificacion] = useState<string | null>(null)
   const [analizando, setAnalizando] = useState(false)
+  const [imagenFaum, setImagenFaum] = useState<string | null>(null)
+  const [aplicandoFaum, setAplicandoFaum] = useState(false)
+  const [errorFaum, setErrorFaum] = useState<string | null>(null)
+  const [metadata, setMetadata] = useState<{
+    fecha: string;
+    hora: string;
+    timestamp: string;
+    nombre_archivo: string;
+  } | null>(null);
 
   const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0]
@@ -20,6 +39,8 @@ export default function SimplifiedAnalizadorMalezas() {
         setCargando(true)
         setErrorImagen(null)
         setClasificacion(null)
+        setImagenFaum(null)
+        setErrorFaum(null)
 
         const imagenURL = await new Promise<string>((resolve) => {
           const lector = new FileReader()
@@ -43,8 +64,10 @@ export default function SimplifiedAnalizadorMalezas() {
     try {
       setAnalizando(true)
       setErrorImagen(null)
+      setClasificacion(null)
+      setImagenFaum(null)
+      setErrorFaum(null)
 
-      // Enviar la imagen al backend
       const response = await fetch('/api/clasificar-cultivo', {
         method: 'POST',
         headers: {
@@ -58,12 +81,45 @@ export default function SimplifiedAnalizadorMalezas() {
       }
 
       const data = await response.json()
-      setClasificacion(data.esPostemergente ? 'Postemergente' : 'Preemergente')
+      console.log("API Response:", data); // Added console log
+      setClasificacion(data.esPostemergente === false ? 'Preemergente' : 'Postemergente')
+      console.log("Classification:", clasificacion); // Added console log
     } catch (error) {
       console.error('Error al analizar la imagen:', error)
       setErrorImagen('Error al analizar la imagen. Por favor, intente de nuevo.')
     } finally {
       setAnalizando(false)
+    }
+  }
+
+  const aplicarFaum = async () => {
+    if (!imagen || clasificacion !== 'Preemergente') return
+
+    try {
+      setAplicandoFaum(true)
+      setErrorFaum(null)
+
+      const response = await fetch('/api/apply-faum', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imagen: imagen }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al aplicar FAUM')
+      }
+
+      const data: FaumResponse = await response.json()
+      const imagenURL = URL.createObjectURL(data.imagen)
+      setImagenFaum(imagenURL)
+      setMetadata(data.metadata)
+    } catch (error) {
+      console.error('Error al aplicar FAUM:', error)
+      setErrorFaum('Error al aplicar FAUM. Por favor, intente de nuevo.')
+    } finally {
+      setAplicandoFaum(false)
     }
   }
 
@@ -120,10 +176,27 @@ export default function SimplifiedAnalizadorMalezas() {
             </div>
           )}
           {clasificacion && (
-            <Alert variant="success" className="mt-4">
+            <Alert variant={clasificacion === 'Preemergente' ? 'info' : 'success'} className="mt-4">
               <AlertTitle>Resultado del Análisis</AlertTitle>
               <AlertDescription>
                 El cultivo ha sido clasificado como: <strong>{clasificacion}</strong>
+                {clasificacion === 'Preemergente' && (
+                  <div className="mt-2">
+                    <Button onClick={aplicarFaum} disabled={aplicandoFaum}>
+                      {aplicandoFaum ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Aplicando FAUM...
+                        </>
+                      ) : (
+                        <>
+                          <SprayIcon className="mr-2 h-4 w-4" />
+                          Aplicar FAUM
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
           )}
@@ -131,6 +204,25 @@ export default function SimplifiedAnalizadorMalezas() {
             <Alert variant="destructive">
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{errorImagen}</AlertDescription>
+            </Alert>
+          )}
+          {imagenFaum && (
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2">Imagen con FAUM Aplicado:</h3>
+              <img src={imagenFaum} alt="Imagen con FAUM" className="max-w-full h-auto rounded-lg shadow-lg" />
+              {metadata && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <p>Fecha: {metadata.fecha}</p>
+                  <p>Hora: {metadata.hora}</p>
+                  <p>Archivo: {metadata.nombre_archivo}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {errorFaum && (
+            <Alert variant="destructive">
+              <AlertTitle>Error al Aplicar FAUM</AlertTitle>
+              <AlertDescription>{errorFaum}</AlertDescription>
             </Alert>
           )}
         </div>

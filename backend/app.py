@@ -4,13 +4,16 @@ import shutil
 import subprocess
 import traceback
 from datetime import datetime
+
+import cv2
+
 import FaumPipe
 from PIL import Image
 import io
 import base64
 import numpy as np
 import requests
-from flask import Flask, jsonify, request, session, send_file, stream_with_context, Response, logging
+from flask import Flask, jsonify, request, session, send_file, stream_with_context, Response, logging, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
@@ -107,6 +110,12 @@ def get_user_upload_folder():
     os.makedirs(user_folder, exist_ok=True)       # Crea la carpeta del usuario si no existe
     os.makedirs(upload_folder, exist_ok=True)     # Crea la carpeta 'tmp' del usuario si no existe
     return upload_folder
+def get_user_upload_folder_root():
+    base_path = './user_storage'
+    user_folder = os.path.join(base_path, str(current_user.id))
+    # Crear las carpetas si no existen
+    os.makedirs(user_folder, exist_ok=True)       # Crea la carpeta del usuario si no existe
+    return user_folder
 
 image_format = ''
 @app.route('/analizar-malezas', methods=['POST'])
@@ -134,7 +143,7 @@ def analizar_malezas():
 
             # Generate a unique filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"input.{image_format}"
+            filename = f"input-{timestamp}.{image_format}"
 
             # Save the image in its original format
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -161,10 +170,10 @@ def analizar_malezas():
 
         resultado = imagen
         if image_format == 'tif':
-            FaumPipe.analizar_imagen_tiff(min_cluster,max_cluster,UPLOAD_FOLDER)
-            magen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output.tif')
+            FaumPipe.analizar_imagen_tiff(min_cluster,max_cluster,UPLOAD_FOLDER,filename)
+            imagen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output.tif')
         else:
-            FaumPipe.analizar_imagen_jpeg(min_cluster,max_cluster,UPLOAD_FOLDER)
+            FaumPipe.analizar_imagen_jpeg(min_cluster,max_cluster,UPLOAD_FOLDER,filename)
             imagen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output.jpeg')
         imagen_analizada_filepath = os.path.join(UPLOAD_FOLDER, imagen_analizada_filename)
 
@@ -194,7 +203,8 @@ def aplicar_mascara():
         print(transparencia, mascaras_str, color_fondo)
         color_fondo = color_fondo.replace('#','')
         UPLOAD_FOLDER = get_user_upload_folder()
-        FaumPipe.aplicar_mascara_jpeg(transparencia,mascaras_str,color_fondo,UPLOAD_FOLDER)
+        filename='output.jpeg'
+        FaumPipe.aplicar_mascara_jpeg(transparencia,mascaras_str,color_fondo,UPLOAD_FOLDER,filename)
         imagen_analizada_filename = os.path.join(UPLOAD_FOLDER, 'output_mask.jpeg')         
         return jsonify({
             'mensaje': f'Análisis completado en modo',
@@ -210,6 +220,7 @@ def aplicar_mascara():
 def get_masked_image(filename):
     try:
         UPLOAD_FOLDER = get_user_upload_folder()
+        app.logger.info("RETURN MASKED IMAGE")
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         return send_file(file_path, mimetype='image/jpeg')
     except FileNotFoundError:
@@ -222,12 +233,14 @@ def get_masked_image(filename):
 @login_required
 def obtener_imagen_analizada(filename):
     try:
-        return send_file(os.path.join(UPLOAD_FOLDER, filename), mimetype='image/png')
+        UPLOAD_FOLDER = get_user_upload_folder()
+        return send_file(os.path.join(UPLOAD_FOLDER, filename), mimetype='image/jpeg')
     except FileNotFoundError:
         return jsonify({'error': 'Imagen no encontrada'}), 404
 
 @app.route('/verificar-imagen/<filename>', methods=['GET'])
 def verificar_imagen(filename):
+    UPLOAD_FOLDER = get_user_upload_folder()
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
         return jsonify({'status': 'ready'})
@@ -347,57 +360,6 @@ def delete_item(item_path):
         return jsonify({'error': 'Item not found'}), 404
 
     return jsonify({'message': 'Item deleted successfully'}), 200
-#ODM --------------------------------
-
-
-NODEODM_URL = "http://opendronemap:8000"  # URL de NodeODM
-
-
-# Verificar autenticación
-@app.route('/check-auth', methods=['GET'])
-def check_auth():
-    # Lógica de autenticación (modifícala según tu app)
-    if request.cookies.get('session_id'):  # Ejemplo con cookies
-        return jsonify({"status": "authenticated"}), 200
-    return jsonify({"status": "unauthenticated"}), 401
-
-
-# Proxy a la interfaz de NodeODM
-@app.route('/odm-proxy/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-def proxy_nodeodm(subpath):
-    try:
-        # Construir la URL final hacia NodeODM
-        url = f"{NODEODM_URL}/{subpath}"
-
-        # Redirigir la solicitud original al servidor NodeODM
-        if request.method == 'GET':
-            response = requests.get(url, params=request.args)
-        elif request.method == 'POST':
-            response = requests.post(url, data=request.form, files=request.files)
-        elif request.method == 'PUT':
-            response = requests.put(url, data=request.data)
-        elif request.method == 'DELETE':
-            response = requests.delete(url)
-        else:
-            return jsonify({"error": "Método HTTP no soportado"}), 405
-
-        # Devolver la respuesta de NodeODM al cliente
-        return Response(response.content, status=response.status_code,
-                        content_type=response.headers.get('Content-Type'))
-
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": "Error al conectar con NodeODM", "details": str(e)}), 500
-
-
-# Prueba de conexión a NodeODM
-@app.route('/test-odm-connection', methods=['GET'])
-def test_odm_connection():
-    try:
-        response = requests.get(f"{NODEODM_URL}/api/status")
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({"error": "No se pudo conectar a NodeODM", "details": str(e)}), 500
-
 # Analizador -----------------------------------------------------------------
 @app.route('/clasificar-cultivo', methods=['POST'])
 def clasificar_cultivo():
@@ -427,6 +389,106 @@ def clasificar_cultivo():
         print(f"Error en la clasificación del cultivo: {str(e)}")
         return jsonify({"error": "Error en la clasificación del cultivo"}), 500
 
+
+@app.route('/apply-faum', methods=['POST'])
+@login_required
+def apply_faum():
+    try:
+        app.logger.info("Received request at /apply-faum")
+        data = request.json
+        imagen_data = data.get('imagen')
+        app.logger.info("Imagen data retrieved successfully")
+
+        UPLOAD_FOLDER = get_user_upload_folder()
+        app.logger.info(f"Upload folder: {UPLOAD_FOLDER}")
+
+        if not imagen_data:
+            app.logger.error("No image data provided")
+            return jsonify({'error': 'No se proporcionó imagen'}), 400
+
+        # Step 1: Analyze weeds
+        app.logger.info("Starting weed analysis")
+        imagen_bytes = base64.b64decode(imagen_data.split(',')[1])
+        image_format = imghdr.what(None, h=imagen_bytes) or 'png'
+        app.logger.info(f"Image format detected: {image_format}")
+
+        timestamp = datetime.now()
+        formatted_timestamp = timestamp.strftime("%Y%m%d_%H%M%S")
+        input_filename = f"input_{formatted_timestamp}.{image_format}"
+        input_filepath = os.path.join(UPLOAD_FOLDER, input_filename)
+
+        with open(input_filepath, 'wb') as f:
+            f.write(imagen_bytes)
+        app.logger.info(f"Image saved to {input_filepath}")
+
+        min_cluster = 2
+        max_cluster = 10
+        app.logger.info("Starting image analysis with FAUM")
+
+        if image_format == 'tif':
+            analyzed_filename = FaumPipe.analizar_imagen_tiff(min_cluster, max_cluster, UPLOAD_FOLDER, input_filename)
+        else:
+            analyzed_filename = FaumPipe.analizar_imagen_jpeg(min_cluster, max_cluster, UPLOAD_FOLDER, input_filename)
+        app.logger.info(f"Image analysis completed: {analyzed_filename}")
+
+        # Step 2: Apply mask
+        mascaras_activas = [3]
+        color_fondo = '000000'
+        transparencia = 500
+        mascaras_str = ",".join(map(str, mascaras_activas))
+        app.logger.info(f"Applying mask with params: transparencia={transparencia}, mascaras={mascaras_str}, color_fondo={color_fondo}")
+
+        FaumPipe.aplicar_mascara_jpeg(transparencia, mascaras_str, color_fondo, UPLOAD_FOLDER, input_filename)
+        masked_filename = f'output_mask_{formatted_timestamp}.jpeg'
+        masked_filepath = os.path.join(UPLOAD_FOLDER, masked_filename)
+        app.logger.info(f"Mask applied and saved: {masked_filename}")
+
+        # Step 3: Return response
+        return jsonify({
+            'imagen': masked_filename,
+            'metadata': {
+                'fecha': timestamp.strftime("%d/%m/%Y"),
+                'hora': timestamp.strftime("%H:%M:%S"),
+                'timestamp': formatted_timestamp,
+                'nombre_archivo': masked_filename
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in /apply-faum: {str(e)}")
+        return jsonify({
+            'error': f'Error al procesar la imagen: {str(e)}',
+            'fecha': datetime.now().strftime("%d/%m/%Y"),
+            'hora': datetime.now().strftime("%H:%M:%S")
+        }), 500
+
+
+@app.route('/storage/download')
+@login_required
+def download_file():
+    path = request.args.get('path')
+    if not path:
+        return jsonify({'error': 'No path provided'}), 400
+
+    # Ensure the path is secure and within the user's folder
+    user_folder = get_user_upload_folder_root()
+    full_path = os.path.abspath(os.path.join(user_folder, path))
+
+    # Check if the path is still within the user's folder (prevent directory traversal)
+    if not full_path.startswith(os.path.abspath(user_folder)):
+        app.logger.error(f"Attempted access outside user folder: {full_path}")
+        abort(403)  # Forbidden
+
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        app.logger.error(f"File not found: {full_path}")
+        return jsonify({'error': 'File not found'}), 404
+
+    try:
+        app.logger.info(f"Attempting to send file: {full_path}")
+        return send_file(full_path, as_attachment=True)
+    except Exception as e:
+        app.logger.error(f"Error downloading file: {str(e)}")
+        return jsonify({'error': 'Error downloading file'}), 500
 
 if __name__ == '__main__':
     with app.app_context():
