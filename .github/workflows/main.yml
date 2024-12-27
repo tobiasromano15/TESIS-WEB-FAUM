@@ -1,0 +1,53 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main # Cambia esto al branch que prefieras
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Paso 2: Log in to DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Paso 3: Construir y subir imágenes para cada servicio
+      - name: Build and Push Docker Images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          # Servicios a construir y subir
+          SERVICES=("backend" "frontend" "faum")
+
+          # Construir y subir imágenes para cada servicio
+          for SERVICE in "${SERVICES[@]}"; do
+            IMAGE_NAME="$DOCKER_USERNAME/$SERVICE"
+            
+            echo "Building and pushing image for $SERVICE..."
+            
+            # Construir la imagen
+            docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest ./$SERVICE
+            
+            # Subir la imagen
+            docker push $IMAGE_NAME:${{ github.sha }}
+            docker push $IMAGE_NAME:latest
+          done
+
+      # Paso 4: Clonar y manejar opendronemap desde su repositorio
+      - name: Clone OpenDroneMap Repository
+        run: |
+          git clone https://github.com/OpenDroneMap/ODM.git
+          cd ODM
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/odm:${{ github.sha }} -t ${{ secrets.DOCKER_USERNAME }}/odm:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/odm:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/odm:latest
