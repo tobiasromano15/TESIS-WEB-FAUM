@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: tesisedutobi/backend:latest
     container_name: backend
     ports:
       - "5000:5000"
@@ -28,9 +26,7 @@ services:
       - frontend
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: tesisedutobi/frontend:latest
     container_name: frontend
     ports:
       - "3001:3001"
@@ -40,10 +36,7 @@ services:
       - app-network
 
   service:
-    build:
-      context: ./faum
-      dockerfile: Dockerfile
-      network: host
+    image: tesisedutobi/faum:latest
     container_name: service
     volumes:
       - user_storage:/app/user_storage
