@@ -29,3 +29,4 @@ wtforms==3.2.1
 requests==2.31.0
 pyodm
 opencv-python
+matplotlib==3.7.2
