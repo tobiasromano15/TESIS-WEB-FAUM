@@ -24,7 +24,9 @@ import uuid
 from pyodm import Node
 import json
 from analizadorMaleza.hay_surcos import hay_surcos
-
+from analizadorMaleza.weed_eraser import process_weed_eraser
+from analizadorMaleza.filter_formations import process_filter_formations
+import tempfile
 
 # Inicializar la app Flask
 app = Flask(__name__)
@@ -381,7 +383,6 @@ def clasificar_cultivo():
 
         # Analizar la imagen
         resultado = hay_surcos(imagen)
-
         # Devolver el resultado
         return jsonify({"esPostemergente": resultado})
 
@@ -462,6 +463,12 @@ def apply_faum():
             'hora': datetime.now().strftime("%H:%M:%S")
         }), 500
 
+## TO DO ENDPOINTS:
+## weed-eraser 
+## filter_formations
+## canopeo
+## cargar-imagen-temporal
+
 
 @app.route('/storage/download')
 @login_required
@@ -490,7 +497,122 @@ def download_file():
         app.logger.error(f"Error downloading file: {str(e)}")
         return jsonify({'error': 'Error downloading file'}), 500
 
+@app.route('/weed-eraser', methods=['POST'])
+@login_required
+def weed_eraser():
+    try:
+        data = request.json
+        archivo_temporal = data.get('archivoTemporal')
+        
+        if not archivo_temporal:
+            return jsonify({'error': 'No se proporcionó archivo temporal'}), 400
+
+        user_folder = get_user_upload_folder()
+        input_path = os.path.join(user_folder, archivo_temporal)
+        
+        if not os.path.exists(input_path):
+            return jsonify({'error': 'Archivo temporal no encontrado'}), 404
+
+        # Process the image with weed-eraser
+        result = process_weed_eraser(input_path)
+        
+        # Save the processed image
+        output_filename = f"weed_eraser_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        output_path = os.path.join(user_folder, output_filename)
+        cv2.imwrite(output_path, result['image'])
+
+        return jsonify({
+            'resultado': 'Análisis de Weed Eraser completado',
+            'imagenUrl': output_filename,
+            'porcentajeMalezas': result['weed_percentage'],
+            'areasCriticas': result['critical_areas']
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in weed-eraser: {str(e)}")
+        return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+
+
+@app.route('/filter-formations', methods=['POST'])
+@login_required
+def filter_formations():
+    try:
+        data = request.json
+        archivo_temporal = data.get('archivoTemporal')
+        color_fondo = data.get('colorFondo', '#000000')  # Color de fondo por defecto negro
+        
+        if not archivo_temporal:
+            return jsonify({'error': 'No se proporcionó archivo temporal'}), 400
+
+        user_folder = get_user_upload_folder()
+        input_path = os.path.join(user_folder, archivo_temporal)
+        
+        if not os.path.exists(input_path):
+            return jsonify({'error': 'Archivo temporal no encontrado'}), 404
+
+        # Process the image with filter-formations
+        imagen_procesada, metadatos = process_filter_formations(input_path, color_fondo)
+        
+        # Save the processed image
+        output_filename = f"filter_formations_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        output_path = os.path.join(user_folder, output_filename)
+        cv2.imwrite(output_path, imagen_procesada)
+
+        return jsonify({
+            'resultado': 'Filtrado de formaciones completado',
+            'imagenUrl': output_filename,
+            'metadatos': metadatos
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in filter-formations: {str(e)}")
+        return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+
+@app.route('/cargar-imagen-temporal', methods=['POST'])
+@login_required
+def cargar_imagen_temporal():
+    try:
+        if 'imagen' not in request.files:
+            return jsonify({'error': 'No se proporcionó imagen'}), 400
+
+        imagen = request.files['imagen']
+        if imagen.filename == '':
+            return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+
+        if imagen:
+            # Create a temporary file
+            user_folder = get_user_upload_folder()
+            _, temp_path = tempfile.mkstemp(dir=user_folder, suffix='.jpg')
+            
+            # Save the uploaded image to the temporary file
+            imagen.save(temp_path)
+            
+            # Get the filename of the temporary file
+            temp_filename = os.path.basename(temp_path)
+            
+            return jsonify({
+                'mensaje': 'Imagen cargada exitosamente',
+                'archivoTemporal': temp_filename,
+                'imagenUrl': f'/imagen-temporal/{temp_filename}'
+            })
+
+    except Exception as e:
+        app.logger.error(f"Error in cargar-imagen-temporal: {str(e)}")
+        return jsonify({'error': f'Error al cargar la imagen: {str(e)}'}), 500
+
+@app.route('/imagen-temporal/<filename>', methods=['GET'])
+@login_required
+def obtener_imagen_temporal(filename):
+    try:
+        user_folder = get_user_upload_folder()
+        return send_file(os.path.join(user_folder, filename), mimetype='image/jpeg')
+    except FileNotFoundError:
+        return jsonify({'error': 'Imagen temporal no encontrada'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=5000, debug=True)
+

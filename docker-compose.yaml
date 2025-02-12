@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      # Si el Dockerfile tiene un nombre distinto o está en otra ubicación relativa dentro de la carpeta:
+      # dockerfile: Dockerfile.backend
+    container_name: backend
+    ports:
+      - "5000:5000"
+    networks:
+      - app-network
+    volumes:
+      - user_storage:/app/user_storage
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SERVICE_CONTAINER_ID=${SERVICE_CONTAINER_ID}
+    depends_on:
+      - service
+
+  opendronemap:
+    image: opendronemap/nodeodm:latest
+    container_name: opendronemap
+    ports:
+      - "3000:3000"
+    depends_on:
+      - frontend
+
+  frontend:
+    build:
+      context: ./frontend
+      # dockerfile: Dockerfile.frontend  # Opcional, si se requiere especificar otro nombre
+    container_name: frontend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  service:
+    image: tesisedutobi/faum:latest
+    container_name: service
+    volumes:
+      - user_storage:/app/user_storage
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SERVICE_CONTAINER_ID=${HOSTNAME} # Esto expone el ID al backend
+    dns:
+      - 8.8.8.8
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  user_storage:
