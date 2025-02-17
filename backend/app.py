@@ -454,12 +454,12 @@ def apply_faum():
         # Step 2: Apply mask
         mascaras_activas = [3]
         color_fondo = '000000'
-        transparencia = 500
+        transparencia = 50
         mascaras_str = ",".join(map(str, mascaras_activas))
         app.logger.info(f"Applying mask with params: transparencia={transparencia}, mascaras={mascaras_str}, color_fondo={color_fondo}")
 
         FaumPipe.aplicar_mascara_jpeg(transparencia, mascaras_str, color_fondo, UPLOAD_FOLDER, input_filename)
-        masked_filename = f'output_mask_{formatted_timestamp}.jpeg'
+        masked_filename = f'output_mask.jpeg'
         masked_filepath = os.path.join(UPLOAD_FOLDER, masked_filename)
         app.logger.info(f"Mask applied and saved: {masked_filename}")
 
