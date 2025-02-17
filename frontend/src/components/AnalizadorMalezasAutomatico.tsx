@@ -46,17 +46,42 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
   const [resultadoWeedEraser, setResultadoWeedEraser] = useState<WeedEraserResult | null>(null)
   const [resultadoFaum, setResultadoFaum] = useState<FaumResult | null>(null)
   const [resultadoFilterFormations, setResultadoFilterFormations] = useState<FilterFormationsResult | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
 
   const getImageUrl = (filename: string) => {
     if (!filename) return null
-    // If it's a full path, return as is
     if (filename.startsWith("/")) return filename
-    // If it's a temporary file, use the correct path
     if (filename.startsWith("tmp")) {
       return `/api/imagen-temporal/${filename}`
     }
-    // For processed images, use the correct path
     return `/api/imagen-analizada/${filename}`
+  }
+
+  const verifyImageExists = async (url: string) => {
+    try {
+      const response = await fetch(url, { method: "HEAD" })
+      return response.ok
+    } catch (error) {
+      console.error("Error verifying image:", error)
+      return false
+    }
+  }
+
+  const setVerifiedImageUrl = async (url: string | null) => {
+    if (!url) {
+      setImagenUrl(null)
+      return
+    }
+    setImageLoading(true)
+    setErrorImagen(null)
+    const fullUrl = getImageUrl(url)
+    if (await verifyImageExists(fullUrl)) {
+      setImagenUrl(fullUrl)
+    } else {
+      setErrorImagen(`No se pudo cargar la imagen: ${url}`)
+      console.error("Image not found:", url)
+    }
+    setImageLoading(false)
   }
 
   const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +106,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
 
         const data = await response.json()
         setArchivoTemporal(data.archivoTemporal)
-        setImagenUrl(getImageUrl(data.archivoTemporal))
+        await setVerifiedImageUrl(data.archivoTemporal)
       } catch (error) {
         console.error("Error al cargar la imagen:", error)
         setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.")
@@ -134,7 +159,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
         setResultadoWeedEraser(dataWeedEraser)
         currentArchivoTemporal = dataWeedEraser.imagenUrl
-        setImagenUrl(getImageUrl(currentArchivoTemporal))
+        await setVerifiedImageUrl(currentArchivoTemporal)
 
         // Paso 3A: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
@@ -147,7 +172,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
-        setImagenUrl(getImageUrl(dataFaum.imagen))
+        await setVerifiedImageUrl(dataFaum.imagen)
       } else {
         // Paso 2B: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
@@ -161,7 +186,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
         currentArchivoTemporal = dataFaum.imagen
-        setImagenUrl(getImageUrl(currentArchivoTemporal))
+        await setVerifiedImageUrl(currentArchivoTemporal)
 
         // Paso 3B: Filtrado de formaciones
         const responseFilterFormations = await fetch("/api/filter-formations", {
@@ -174,7 +199,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
         setResultadoFilterFormations(dataFilterFormations)
-        setImagenUrl(getImageUrl(dataFilterFormations.imagenUrl))
+        await setVerifiedImageUrl(dataFilterFormations.imagenUrl)
       }
     } catch (error) {
       console.error("Error al analizar la imagen:", error)
@@ -195,7 +220,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {!imagenUrl && (
+          {!imagenUrl && !imageLoading && (
             <div className="flex items-center justify-center w-full">
               <label
                 htmlFor="dropzone-file"
@@ -218,24 +243,25 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
               </label>
             </div>
           )}
-          {cargando && (
+          {(cargando || imageLoading) && (
             <div className="flex justify-center items-center">
               <Loader2 className="h-8 w-8 animate-spin" />
               <span className="ml-2">Cargando imagen...</span>
             </div>
           )}
-          {imagenUrl && (
+          {imagenUrl && !imageLoading && (
             <div className="mt-4">
               <h3 className="text-lg font-semibold mb-2">Imagen Actual:</h3>
               <img
                 src={imagenUrl || "/placeholder.svg"}
                 alt="Imagen Actual"
                 className="max-w-full h-auto rounded-lg shadow-lg"
+                onError={() => setErrorImagen("Error al cargar la imagen")}
               />
               <div className="mt-4 space-x-4">
                 <Button
                   onClick={() => {
-                    setImagenUrl(null)
+                    setVerifiedImageUrl(null)
                     setArchivoTemporal(null)
                     resetearResultados()
                   }}
