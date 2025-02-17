@@ -408,30 +408,38 @@ def apply_faum():
     try:
         app.logger.info("Received request at /apply-faum")
         data = request.json
-        imagen_data = data.get('archivoTemporal')
-        app.logger.info("Imagen data retrieved successfully")
+        archivo_temporal = data.get('archivoTemporal')
+        app.logger.info(f"archivo_temporal received: {archivo_temporal}")
+
+        if not archivo_temporal:
+            app.logger.error("No se proporcionó archivoTemporal")
+            return jsonify({'error': 'No se proporcionó archivoTemporal'}), 400
 
         UPLOAD_FOLDER = get_user_upload_folder_tmp()
         app.logger.info(f"Upload folder: {UPLOAD_FOLDER}")
+        input_filepath = os.path.join(UPLOAD_FOLDER, archivo_temporal)
+        app.logger.info(f"Input file path: {input_filepath}")
 
-        if not imagen_data:
-            app.logger.error("No image data provided")
-            return jsonify({'error': 'No se proporcionó imagen'}), 400
+        if not os.path.exists(input_filepath):
+            app.logger.error("Archivo temporal no encontrado")
+            return jsonify({'error': 'Archivo temporal no encontrado'}), 400
 
-        # Step 1: Analyze weeds
-        app.logger.info("Starting weed analysis")
-        imagen_bytes = base64.b64decode(imagen_data.split(',')[1])
+        # Leer el archivo desde disco en lugar de decodificar base64
+        with open(input_filepath, 'rb') as f:
+            imagen_bytes = f.read()
+
         image_format = imghdr.what(None, h=imagen_bytes) or 'png'
         app.logger.info(f"Image format detected: {image_format}")
 
         timestamp = datetime.now()
         formatted_timestamp = timestamp.strftime("%Y%m%d_%H%M%S")
         input_filename = f"input_{formatted_timestamp}.{image_format}"
-        input_filepath = os.path.join(UPLOAD_FOLDER, input_filename)
+        input_filepath_new = os.path.join(UPLOAD_FOLDER, input_filename)
 
-        with open(input_filepath, 'wb') as f:
+        # Guardar una copia del archivo (opcional, si es necesario)
+        with open(input_filepath_new, 'wb') as f:
             f.write(imagen_bytes)
-        app.logger.info(f"Image saved to {input_filepath}")
+        app.logger.info(f"Image saved to {input_filepath_new}")
 
         min_cluster = 2
         max_cluster = 10
@@ -473,6 +481,7 @@ def apply_faum():
             'fecha': datetime.now().strftime("%d/%m/%Y"),
             'hora': datetime.now().strftime("%H:%M:%S")
         }), 500
+
 
 ## TO DO ENDPOINTS:
 ## weed-eraser 
