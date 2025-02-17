@@ -617,7 +617,7 @@ def cargar_imagen_temporal():
 @login_required
 def obtener_imagen_temporal(filename):
     try:
-        user_folder = get_user_upload_folder()
+        user_folder = get_user_upload_folder_tmp()
         return send_file(os.path.join(user_folder, filename), mimetype='image/jpeg')
     except FileNotFoundError:
         return jsonify({'error': 'Imagen temporal no encontrada'}), 404
