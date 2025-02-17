@@ -36,6 +36,13 @@ interface FilterFormationsResult extends AnalysisResult {
   }
 }
 
+// Función para construir la URL de la imagen
+const construirUrlImagen = (url: string): string => {
+  return url.startsWith("http") || url.startsWith("/")
+    ? url
+    : `/uploads/${url}`
+}
+
 const SimplifiedAnalizadorMalezas: React.FC = () => {
   const [imagenUrl, setImagenUrl] = useState<string | null>(null)
   const [archivoTemporal, setArchivoTemporal] = useState<string | null>(null)
@@ -68,8 +75,9 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
 
         const data = await response.json()
+        const urlImg = construirUrlImagen(data.imagenUrl)
         setArchivoTemporal(data.archivoTemporal)
-        setImagenUrl(data.imagenUrl)
+        setImagenUrl(urlImg)
       } catch (error) {
         console.error("Error al cargar la imagen:", error)
         setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.")
@@ -94,7 +102,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       setErrorImagen(null)
       resetearResultados()
 
-      // Usamos una variable local para ir actualizando el archivo a usar
+      // Variable local para actualizar el archivo a usar
       let currentArchivoTemporal = archivoTemporal
 
       // Paso 1: Clasificar cultivo
@@ -110,8 +118,6 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       const esPostemergente = dataClasificacion.esPostemergente
       setClasificacion(esPostemergente ? "Postemergente" : "Preemergente")
 
-      // Para ambos casos, la siguiente llamada se hará con el archivo actualizado
-      // En este ejemplo, asumiremos que el endpoint /apply-faum utiliza el archivo resultante
       if (esPostemergente) {
         // Paso 2A: Análisis Weed Eraser para cultivos Postemergentes
         const responseWeedEraser = await fetch("/api/weed-eraser", {
@@ -124,7 +130,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
         setResultadoWeedEraser(dataWeedEraser)
-        currentArchivoTemporal = dataWeedEraser.imagenUrl // Actualizamos con el nuevo resultado
+        currentArchivoTemporal = construirUrlImagen(dataWeedEraser.imagenUrl)
         setArchivoTemporal(currentArchivoTemporal)
         setImagenUrl(currentArchivoTemporal)
 
@@ -139,11 +145,11 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
-        currentArchivoTemporal = dataFaum.imagen // Se espera que el back-end retorne el nombre del nuevo archivo en "imagen"
+        currentArchivoTemporal = construirUrlImagen(dataFaum.imagen)
         setArchivoTemporal(currentArchivoTemporal)
         setImagenUrl(currentArchivoTemporal)
       } else {
-        // Para cultivos Preemergentes, se hace primero FAUM y luego el filtrado de formaciones
+        // Cultivos Preemergentes: FAUM y luego filtrado de formaciones
         // Paso 2B: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
@@ -155,7 +161,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
-        currentArchivoTemporal = dataFaum.imagen
+        currentArchivoTemporal = construirUrlImagen(dataFaum.imagen)
         setArchivoTemporal(currentArchivoTemporal)
         setImagenUrl(currentArchivoTemporal)
 
@@ -170,7 +176,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
         setResultadoFilterFormations(dataFilterFormations)
-        currentArchivoTemporal = dataFilterFormations.imagen
+        currentArchivoTemporal = construirUrlImagen(dataFilterFormations.imagen)
         setArchivoTemporal(currentArchivoTemporal)
         setImagenUrl(currentArchivoTemporal)
       }
@@ -326,4 +332,3 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
 }
 
 export default SimplifiedAnalizadorMalezas
-
