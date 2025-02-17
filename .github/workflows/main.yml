@@ -25,23 +25,28 @@ jobs:
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
-          # Servicios a construir y subir
+          # Lista de servicios a evaluar
           SERVICES=("backend" "frontend")
 
-          # Construir y subir imágenes para cada servicio
-          for SERVICE in "${SERVICES[@]}"; do
-            IMAGE_NAME="$DOCKER_USERNAME/$SERVICE"
-            
-            echo "Building and pushing image for $SERVICE..."
-            
-            # Construir la imagen
-            docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest ./$SERVICE
-            
-            # Subir la imagen
-            docker push $IMAGE_NAME:${{ github.sha }}
-            docker push $IMAGE_NAME:latest
-          done
+          # Obtener la lista de archivos modificados en el último commit (o entre dos commits)
+          changed_files=$(git diff --name-only HEAD^ HEAD)
 
+          for SERVICE in "${SERVICES[@]}"; do
+            # Revisar si algún archivo dentro del directorio del servicio ha cambiado
+            if echo "$changed_files" | grep -q "^${SERVICE}/"; then
+              IMAGE_NAME="$DOCKER_USERNAME/$SERVICE"
+              echo "Se detectaron cambios en $SERVICE. Construyendo y subiendo imagen..."
+              
+              # Construir la imagen
+              docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest ./$SERVICE
+              
+              # Subir la imagen
+              docker push $IMAGE_NAME:${{ github.sha }}
+              docker push $IMAGE_NAME:latest
+            else
+              echo "No se detectaron cambios en $SERVICE. Saltando build..."
+            fi
+          done
   deploy:
     # Este job se ejecutará una vez finalizado "build-and-push" correctamente
     needs: [build-and-push]
