@@ -68,7 +68,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
 
         const data = await response.json()
-        actualizarImagenUrl(data.imagenUrl)
+        setArchivoTemporal(data.archivoTemporal)
+        setImagenUrl(data.imagenUrl)
       } catch (error) {
         console.error("Error al cargar la imagen:", error)
         setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.")
@@ -109,6 +110,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       const esPostemergente = dataClasificacion.esPostemergente
       setClasificacion(esPostemergente ? "Postemergente" : "Preemergente")
 
+      // Para ambos casos, la siguiente llamada se hará con el archivo actualizado
+      // En este ejemplo, asumiremos que el endpoint /apply-faum utiliza el archivo resultante
       if (esPostemergente) {
         // Paso 2A: Análisis Weed Eraser para cultivos Postemergentes
         const responseWeedEraser = await fetch("/api/weed-eraser", {
@@ -121,8 +124,9 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
         setResultadoWeedEraser(dataWeedEraser)
-        currentArchivoTemporal = dataWeedEraser.imagenUrl
-        actualizarImagenUrl(currentArchivoTemporal)
+        currentArchivoTemporal = dataWeedEraser.imagenUrl // Actualizamos con el nuevo resultado
+        setArchivoTemporal(currentArchivoTemporal)
+        setImagenUrl(currentArchivoTemporal)
 
         // Paso 3A: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
@@ -135,8 +139,9 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
-        currentArchivoTemporal = dataFaum.imagen
-        actualizarImagenUrl(currentArchivoTemporal)
+        currentArchivoTemporal = dataFaum.imagen // Se espera que el back-end retorne el nombre del nuevo archivo en "imagen"
+        setArchivoTemporal(currentArchivoTemporal)
+        setImagenUrl(currentArchivoTemporal)
       } else {
         // Para cultivos Preemergentes, se hace primero FAUM y luego el filtrado de formaciones
         // Paso 2B: Análisis FAUM
@@ -151,7 +156,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
         currentArchivoTemporal = dataFaum.imagen
-        actualizarImagenUrl(currentArchivoTemporal)
+        setArchivoTemporal(currentArchivoTemporal)
+        setImagenUrl(currentArchivoTemporal)
 
         // Paso 3B: Filtrado de formaciones
         const responseFilterFormations = await fetch("/api/filter-formations", {
@@ -164,8 +170,9 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
         setResultadoFilterFormations(dataFilterFormations)
-        currentArchivoTemporal = dataFilterFormations.imagenUrl
-        actualizarImagenUrl(currentArchivoTemporal)
+        currentArchivoTemporal = dataFilterFormations.imagen
+        setArchivoTemporal(currentArchivoTemporal)
+        setImagenUrl(currentArchivoTemporal)
       }
     } catch (error) {
       console.error("Error al analizar la imagen:", error)
@@ -173,16 +180,6 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
     } finally {
       setAnalizando(false)
     }
-  }
-
-  // Función auxiliar para actualizar la URL de la imagen
-  const actualizarImagenUrl = (url: string) => {
-    if (url.startsWith("http")) {
-      setImagenUrl(url)
-    } else {
-      setImagenUrl(`${window.location.origin}${url.startsWith("/") ? "" : "/"}${url}`)
-    }
-    setArchivoTemporal(url)
   }
 
   return (
@@ -232,12 +229,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                 src={imagenUrl || "/placeholder.svg"}
                 alt="Imagen Actual"
                 className="max-w-full h-auto rounded-lg shadow-lg"
-                onError={(e) => {
-                  console.error("Error loading image:", e)
-                  setErrorImagen("Error al cargar la imagen. Por favor, intente de nuevo.")
-                }}
               />
-              <p className="mt-2 text-sm text-gray-500">URL de la imagen: {imagenUrl}</p>
               <div className="mt-4 space-x-4">
                 <Button
                   onClick={() => {
@@ -299,7 +291,6 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                       <AlertTitle>FAUM</AlertTitle>
                       <AlertDescription>
                         <p>{resultadoFaum.resultado}</p>
-                        {/* Se omiten propiedades no retornadas */}
                       </AlertDescription>
                     </Alert>
                   )}
