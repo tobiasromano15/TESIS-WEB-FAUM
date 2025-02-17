@@ -26,7 +26,7 @@ jobs:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
           # Servicios a construir y subir
-          SERVICES=("backend" "frontend" "faum")
+          SERVICES=("backend" "frontend")
 
           # Construir y subir imágenes para cada servicio
           for SERVICE in "${SERVICES[@]}"; do
