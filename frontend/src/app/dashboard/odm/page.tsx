@@ -12,12 +12,12 @@ export default function ODMProcessing() {
   useEffect(() => {
     const checkODMAvailability = async () => {
       try {
-        const response = await fetch(ODM_URL, { method: 'HEAD' })
-        if (!response.ok) {
-          throw new Error('No se pudo conectar con el servidor ODM')
-        }
-      } catch (error) {
-        console.error('Error al verificar la disponibilidad de ODM:', error)
+        // Usamos GET con mode: 'no-cors' para evitar problemas de CORS.
+        // La respuesta será opaca, por lo que no podemos evaluar response.ok,
+        // pero si no lanza error, asumimos que el servicio está activo.
+        await fetch(ODM_URL, { method: 'GET', mode: 'no-cors' });
+      } catch (err) {
+        console.error('Error al verificar la disponibilidad de ODM:', err)
         setError("No se pudo conectar con el servidor ODM. Por favor, verifique que esté en ejecución.")
       }
     }
@@ -50,4 +50,3 @@ export default function ODMProcessing() {
     </div>
   )
 }
-
