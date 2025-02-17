@@ -366,29 +366,31 @@ def delete_item(item_path):
 @app.route('/clasificar-cultivo', methods=['POST'])
 def clasificar_cultivo():
     try:
-        # Obtener la imagen del cuerpo de la solicitud
-        imagen_base64 = request.json['imagen']
+        # Leer 'archivoTemporal' en lugar de 'imagen'
+        archivo_temporal = request.json['archivoTemporal']
         
-        # Decodificar la imagen base64
-        imagen_bytes = base64.b64decode(imagen_base64.split(',')[1])
+        # Construir la ruta en la carpeta temporal (o donde lo guardes)
+        # Ejemplo usando la misma lógica que /weed-eraser:
+        user_folder = get_user_upload_folder()
+        input_path = os.path.join(user_folder, archivo_temporal)
         
-        # Convertir bytes a numpy array
-        nparr = np.frombuffer(imagen_bytes, np.uint8)
-        
-        # Decodificar el array numpy a una imagen OpenCV
-        imagen = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
+        if not os.path.exists(input_path):
+            return jsonify({"error": "Archivo temporal no encontrado"}), 400
+
+        # Cargar la imagen con OpenCV
+        imagen = cv2.imread(input_path)  # Lee como BGR
         if imagen is None:
             return jsonify({"error": "No se pudo procesar la imagen"}), 400
 
-        # Analizar la imagen
+        # Llamar a tu función hay_surcos
         resultado = hay_surcos(imagen)
-        # Devolver el resultado
-        return jsonify({"esPostemergente": resultado})
 
+        return jsonify({"esPostemergente": resultado})
+    
     except Exception as e:
         print(f"Error en la clasificación del cultivo: {str(e)}")
         return jsonify({"error": "Error en la clasificación del cultivo"}), 500
+
 
 
 @app.route('/apply-faum', methods=['POST'])

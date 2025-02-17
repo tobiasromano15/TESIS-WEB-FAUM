@@ -50,7 +50,7 @@ jobs:
       - name: Deploy to DigitalOcean
         uses: appleboy/ssh-action@master
         with:
-          host: 104.248.229.107
+          host: 157.245.132.144
           username: root
           password: Tesis123.Edutobi
           # Si usas un puerto distinto a 22, agrégalo así: port: 22
