@@ -462,7 +462,8 @@ def apply_faum():
         masked_filename = f'output_mask.jpeg'
         masked_filepath = os.path.join(UPLOAD_FOLDER, masked_filename)
         app.logger.info(f"Mask applied and saved: {masked_filename}")
-
+        clean_tmp = limpiar_carpeta_tmp_excluding_mask()
+        print(clean_tmp)
         # Step 3: Return response
         return jsonify({
             'imagen': masked_filename,
@@ -580,7 +581,7 @@ def filter_formations():
         output_filename = f"filter_formations_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
         output_path = os.path.join(user_folder, output_filename)
         cv2.imwrite(output_path, imagen_procesada)
-
+        
         return jsonify({
             'resultado': 'Filtrado de formaciones completado',
             'imagenUrl': output_filename,
@@ -633,7 +634,27 @@ def obtener_imagen_temporal(filename):
         return jsonify({'error': 'Imagen temporal no encontrada'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
+def limpiar_carpeta_tmp_excluding_mask():
+    """
+    Elimina todos los archivos en la carpeta temporal del usuario,
+    excepto el archivo 'output_mask.jpeg'.
+    Se utiliza get_user_upload_folder_tmp() para obtener la ruta de la carpeta.
+    
+    Retorna True si la operación fue exitosa o False en caso de error.
+    """
+    try:
+        tmp_folder = get_user_upload_folder_tmp()
+        for filename in os.listdir(tmp_folder):
+            if filename != 'output_mask.jpeg':
+                file_path = os.path.join(tmp_folder, filename)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+        return True
+    except Exception as e:
+        app.logger.error(f"Error al limpiar la carpeta tmp: {str(e)}")
+        return False
+    
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
