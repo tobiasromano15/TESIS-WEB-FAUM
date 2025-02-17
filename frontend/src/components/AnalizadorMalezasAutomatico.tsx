@@ -87,110 +87,101 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
   }
 
   const analizarImagen = async () => {
-    if (!archivoTemporal) return
-
+    if (!archivoTemporal) return;
+  
     try {
-      setAnalizando(true)
-      setErrorImagen(null)
-      resetearResultados()
-
+      setAnalizando(true);
+      setErrorImagen(null);
+      resetearResultados();
+  
+      // Usamos una variable local para mantener el valor actualizado
+      let currentArchivoTemporal = archivoTemporal;
+  
       // Clasificación del cultivo
       const responseClasificacion = await fetch("/api/clasificar-cultivo", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ archivoTemporal }),
-      })
-
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+      });
+  
       if (!responseClasificacion.ok) {
-        throw new Error("Error en la clasificación del cultivo")
+        throw new Error("Error en la clasificación del cultivo");
       }
-
-      const dataClasificacion = await responseClasificacion.json()
-      const esPostemergente = dataClasificacion.esPostemergente
-      setClasificacion(esPostemergente ? "Postemergente" : "Preemergente")
-
+  
+      const dataClasificacion = await responseClasificacion.json();
+      const esPostemergente = dataClasificacion.esPostemergente;
+      setClasificacion(esPostemergente ? "Postemergente" : "Preemergente");
+  
       if (esPostemergente) {
         // Análisis Weed Eraser para cultivos Postemergentes
         const responseWeedEraser = await fetch("/api/weed-eraser", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseWeedEraser.ok) {
-          throw new Error("Error en el análisis de Weed Eraser")
+          throw new Error("Error en el análisis de Weed Eraser");
         }
-
-        const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
-        setResultadoWeedEraser(dataWeedEraser)
-        setArchivoTemporal(dataWeedEraser.imagenUrl)
-        setImagenUrl(dataWeedEraser.imagenUrl)
-
+        const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json();
+        setResultadoWeedEraser(dataWeedEraser);
+        // Actualizamos la variable con el nuevo nombre del archivo
+        currentArchivoTemporal = dataWeedEraser.imagenUrl;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(currentArchivoTemporal);
+  
         // Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFaum.ok) {
-          throw new Error("Error en el análisis de FAUM")
+          throw new Error("Error en el análisis de FAUM");
         }
-
-        const dataFaum: FaumResult = await responseFaum.json()
-        setResultadoFaum(dataFaum)
-        setArchivoTemporal(dataFaum.imagenUrl)
-        setImagenUrl(dataFaum.imagenUrl)
+        const dataFaum: FaumResult = await responseFaum.json();
+        setResultadoFaum(dataFaum);
+        // Asumimos que el back-end retorna el nuevo nombre del archivo en la propiedad "imagen"
+        currentArchivoTemporal = dataFaum.imagen;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(currentArchivoTemporal);
       } else {
         // Análisis FAUM para cultivos Preemergentes
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFaum.ok) {
-          throw new Error("Error en el análisis de FAUM")
+          throw new Error("Error en el análisis de FAUM");
         }
-
-        const dataFaum: FaumResult = await responseFaum.json()
-        setResultadoFaum(dataFaum)
-        setArchivoTemporal(dataFaum.imagenUrl)
-        setImagenUrl(dataFaum.imagenUrl)
-
+        const dataFaum: FaumResult = await responseFaum.json();
+        setResultadoFaum(dataFaum);
+        currentArchivoTemporal = dataFaum.imagen;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(currentArchivoTemporal);
+  
         // Filtrado de formaciones para cultivos Preemergentes
         const responseFilterFormations = await fetch("/api/filter-formations", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFilterFormations.ok) {
-          throw new Error("Error en el filtrado de formaciones")
+          throw new Error("Error en el filtrado de formaciones");
         }
-
-        const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
-        setResultadoFilterFormations(dataFilterFormations)
-        setArchivoTemporal(dataFilterFormations.imagenUrl)
-        setImagenUrl(dataFilterFormations.imagenUrl)
+        const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json();
+        setResultadoFilterFormations(dataFilterFormations);
+        currentArchivoTemporal = dataFilterFormations.imagen;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(currentArchivoTemporal);
       }
     } catch (error) {
-      console.error("Error al analizar la imagen:", error)
-      setErrorImagen(`Error al analizar la imagen: ${error instanceof Error ? error.message : String(error)}`)
+      console.error("Error al analizar la imagen:", error);
+      setErrorImagen(`Error al analizar la imagen: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setAnalizando(false)
+      setAnalizando(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
