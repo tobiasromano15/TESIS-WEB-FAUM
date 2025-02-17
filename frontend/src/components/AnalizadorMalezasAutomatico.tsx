@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -18,7 +18,7 @@ interface WeedEraserResult extends AnalysisResult {
 }
 
 interface FaumResult {
-  imagen: string // Nombre del archivo resultante
+  imagen: string
   metadata: {
     fecha: string
     hora: string
@@ -46,16 +46,14 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
   const [resultadoWeedEraser, setResultadoWeedEraser] = useState<WeedEraserResult | null>(null)
   const [resultadoFaum, setResultadoFaum] = useState<FaumResult | null>(null)
   const [resultadoFilterFormations, setResultadoFilterFormations] = useState<FilterFormationsResult | null>(null)
-  const [ultimaImagenAnalizada, setUltimaImagenAnalizada] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (resultadoWeedEraser || resultadoFaum || resultadoFilterFormations) {
-      const imagenUrl = resultadoWeedEraser?.imagenUrl || resultadoFaum?.imagen || resultadoFilterFormations?.imagenUrl
-      if (imagenUrl) {
-        setUltimaImagenAnalizada(`/imagen-temporal/${imagenUrl}`)
-      }
-    }
-  }, [resultadoWeedEraser, resultadoFaum, resultadoFilterFormations])
+  const getImageUrl = (filename: string) => {
+    if (!filename) return null
+    // Si el filename ya es una URL completa, la devolvemos
+    if (filename.startsWith("/")) return filename
+    // Si no, asumimos que es un nombre de archivo temporal
+    return `/imagen-temporal/${filename}`
+  }
 
   const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0]
@@ -104,7 +102,6 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       setErrorImagen(null)
       resetearResultados()
 
-      // Usamos una variable local para ir actualizando el archivo a usar
       let currentArchivoTemporal = archivoTemporal
 
       // Paso 1: Clasificar cultivo
@@ -120,10 +117,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
       const esPostemergente = dataClasificacion.esPostemergente
       setClasificacion(esPostemergente ? "Postemergente" : "Preemergente")
 
-      // Para ambos casos, la siguiente llamada se hará con el archivo actualizado
-      // En este ejemplo, asumiremos que el endpoint /apply-faum utiliza el archivo resultante
       if (esPostemergente) {
-        // Paso 2A: Análisis Weed Eraser para cultivos Postemergentes
+        // Paso 2A: Análisis Weed Eraser
         const responseWeedEraser = await fetch("/api/weed-eraser", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -134,9 +129,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
         setResultadoWeedEraser(dataWeedEraser)
-        currentArchivoTemporal = dataWeedEraser.imagenUrl // Actualizamos con el nuevo resultado
-        setArchivoTemporal(currentArchivoTemporal)
-        setImagenUrl(currentArchivoTemporal)
+        currentArchivoTemporal = dataWeedEraser.imagenUrl
+        setImagenUrl(getImageUrl(currentArchivoTemporal))
 
         // Paso 3A: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
@@ -149,11 +143,8 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
-        currentArchivoTemporal = dataFaum.imagen // Se espera que el back-end retorne el nombre del nuevo archivo en "imagen"
-        setArchivoTemporal(currentArchivoTemporal)
-        setImagenUrl(currentArchivoTemporal)
+        setImagenUrl(getImageUrl(dataFaum.imagen))
       } else {
-        // Para cultivos Preemergentes, se hace primero FAUM y luego el filtrado de formaciones
         // Paso 2B: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
@@ -166,8 +157,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         const dataFaum: FaumResult = await responseFaum.json()
         setResultadoFaum(dataFaum)
         currentArchivoTemporal = dataFaum.imagen
-        setArchivoTemporal(currentArchivoTemporal)
-        setImagenUrl(currentArchivoTemporal)
+        setImagenUrl(getImageUrl(currentArchivoTemporal))
 
         // Paso 3B: Filtrado de formaciones
         const responseFilterFormations = await fetch("/api/filter-formations", {
@@ -180,9 +170,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         }
         const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
         setResultadoFilterFormations(dataFilterFormations)
-        currentArchivoTemporal = dataFilterFormations.imagen
-        setArchivoTemporal(currentArchivoTemporal)
-        setImagenUrl(currentArchivoTemporal)
+        setImagenUrl(getImageUrl(dataFilterFormations.imagenUrl))
       }
     } catch (error) {
       console.error("Error al analizar la imagen:", error)
@@ -300,7 +288,11 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                     <Alert variant="info" className="mt-4">
                       <AlertTitle>FAUM</AlertTitle>
                       <AlertDescription>
-                        <p>{resultadoFaum.resultado}</p>
+                        <p>{resultadoFaum.resultado || "No hay información adicional"}</p>
+                        <p>
+                          Imagen resultante: {resultadoFaum.metadata.nombre_archivo} <br />
+                          Fecha: {resultadoFaum.metadata.fecha} - Hora: {resultadoFaum.metadata.hora}
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -328,16 +320,6 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{errorImagen}</AlertDescription>
             </Alert>
-          )}
-          {ultimaImagenAnalizada && (
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold mb-2">Última imagen analizada:</h3>
-              <img
-                src={ultimaImagenAnalizada || "/placeholder.svg"}
-                alt="Última imagen analizada"
-                className="max-w-full h-auto rounded-lg shadow-lg"
-              />
-            </div>
           )}
         </div>
       </CardContent>
