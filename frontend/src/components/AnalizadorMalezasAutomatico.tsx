@@ -1,196 +1,187 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Loader2, LeafIcon, UploadIcon } from "lucide-react"
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Loader2, LeafIcon, UploadIcon } from 'lucide-react';
 
 interface AnalysisResult {
-  resultado: string
-  imagenUrl: string
+  resultado: string;
+  imagenUrl: string;
 }
 
 interface WeedEraserResult extends AnalysisResult {
-  porcentajeMalezas: number
-  areasCriticas?: Array<{ x: number; y: number; tamaño: number }>
+  porcentajeMalezas: number;
+  areasCriticas?: Array<{ x: number; y: number; tamaño: number }>;
 }
 
-interface FaumResult extends AnalysisResult {
-  indiceVegetacion: number
-  recomendaciones: string[]
+interface FaumResult {
+  imagen: string; // Nombre del archivo resultante
+  metadata: {
+    fecha: string;
+    hora: string;
+    timestamp: string;
+    nombre_archivo: string;
+  };
+  resultado?: string;
 }
 
 interface FilterFormationsResult extends AnalysisResult {
   metadatos?: {
-    porcentaje_modificado: number
-    color_fondo_original: string
-    umbral_utilizado: number
-  }
+    porcentaje_modificado: number;
+    color_fondo_original: string;
+    umbral_utilizado: number;
+  };
 }
 
 const SimplifiedAnalizadorMalezas: React.FC = () => {
-  const [imagenUrl, setImagenUrl] = useState<string | null>(null)
-  const [archivoTemporal, setArchivoTemporal] = useState<string | null>(null)
-  const [cargando, setCargando] = useState(false)
-  const [errorImagen, setErrorImagen] = useState<string | null>(null)
-  const [clasificacion, setClasificacion] = useState<string | null>(null)
-  const [analizando, setAnalizando] = useState(false)
-  const [resultadoWeedEraser, setResultadoWeedEraser] = useState<WeedEraserResult | null>(null)
-  const [resultadoFaum, setResultadoFaum] = useState<FaumResult | null>(null)
-  const [resultadoFilterFormations, setResultadoFilterFormations] = useState<FilterFormationsResult | null>(null)
-
-  useEffect(() => {
-    if (archivoTemporal) {
-      setImagenUrl(`/api/imagen-temporal/${archivoTemporal}`)
-    }
-  }, [archivoTemporal])
+  const [imagenUrl, setImagenUrl] = useState<string | null>(null);
+  const [archivoTemporal, setArchivoTemporal] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [errorImagen, setErrorImagen] = useState<string | null>(null);
+  const [clasificacion, setClasificacion] = useState<string | null>(null);
+  const [analizando, setAnalizando] = useState(false);
+  const [resultadoWeedEraser, setResultadoWeedEraser] = useState<WeedEraserResult | null>(null);
+  const [resultadoFaum, setResultadoFaum] = useState<FaumResult | null>(null);
+  const [resultadoFilterFormations, setResultadoFilterFormations] = useState<FilterFormationsResult | null>(null);
 
   const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const archivo = e.target.files?.[0]
+    const archivo = e.target.files?.[0];
     if (archivo) {
       try {
-        setCargando(true)
-        setErrorImagen(null)
-        resetearResultados()
+        setCargando(true);
+        setErrorImagen(null);
+        resetearResultados();
 
-        const formData = new FormData()
-        formData.append("imagen", archivo)
+        const formData = new FormData();
+        formData.append("imagen", archivo);
 
         const response = await fetch("/api/cargar-imagen-temporal", {
           method: "POST",
           body: formData,
-        })
+        });
 
         if (!response.ok) {
-          throw new Error("Error al cargar la imagen")
+          throw new Error("Error al cargar la imagen");
         }
 
-        const data = await response.json()
-        setArchivoTemporal(data.archivoTemporal)
-        setImagenUrl(`/api/imagen-temporal/${data.archivoTemporal}`)
+        const data = await response.json();
+        setArchivoTemporal(data.archivoTemporal);
+        // Use the full URL for the image
+        setImagenUrl(`${window.location.origin}${data.imagenUrl}`);
       } catch (error) {
-        console.error("Error al cargar la imagen:", error)
-        setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.")
+        console.error("Error al cargar la imagen:", error);
+        setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.");
       } finally {
-        setCargando(false)
+        setCargando(false);
       }
     }
-  }
+  };
 
   const resetearResultados = () => {
-    setClasificacion(null)
-    setResultadoWeedEraser(null)
-    setResultadoFaum(null)
-    setResultadoFilterFormations(null)
-  }
+    setClasificacion(null);
+    setResultadoWeedEraser(null);
+    setResultadoFaum(null);
+    setResultadoFilterFormations(null);
+  };
 
   const analizarImagen = async () => {
-    if (!archivoTemporal) return
+    if (!archivoTemporal) return;
 
     try {
-      setAnalizando(true)
-      setErrorImagen(null)
-      resetearResultados()
+      setAnalizando(true);
+      setErrorImagen(null);
+      resetearResultados();
 
-      // Clasificación del cultivo
+      // Usamos una variable local para ir actualizando el archivo a usar
+      let currentArchivoTemporal = archivoTemporal;
+
+      // Paso 1: Clasificar cultivo
       const responseClasificacion = await fetch("/api/clasificar-cultivo", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ archivoTemporal }),
-      })
-
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+      });
       if (!responseClasificacion.ok) {
-        throw new Error("Error en la clasificación del cultivo")
+        throw new Error("Error en la clasificación del cultivo");
       }
+      const dataClasificacion = await responseClasificacion.json();
+      const esPostemergente = dataClasificacion.esPostemergente;
+      setClasificacion(esPostemergente ? "Postemergente" : "Preemergente");
 
-      const dataClasificacion = await responseClasificacion.json()
-      const esPostemergente = dataClasificacion.esPostemergente
-      setClasificacion(esPostemergente ? "Postemergente" : "Preemergente")
-
+      // Para ambos casos, la siguiente llamada se hará con el archivo actualizado
+      // En este ejemplo, asumiremos que el endpoint /apply-faum utiliza el archivo resultante
       if (esPostemergente) {
-        // Análisis Weed Eraser para cultivos Postemergentes
+        // Paso 2A: Análisis Weed Eraser para cultivos Postemergentes
         const responseWeedEraser = await fetch("/api/weed-eraser", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseWeedEraser.ok) {
-          throw new Error("Error en el análisis de Weed Eraser")
+          throw new Error("Error en el análisis de Weed Eraser");
         }
+        const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json();
+        setResultadoWeedEraser(dataWeedEraser);
+        currentArchivoTemporal = dataWeedEraser.imagenUrl; // Actualizamos con el nuevo resultado
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(`${window.location.origin}${currentArchivoTemporal}`); // Update image URL
 
-        const dataWeedEraser: WeedEraserResult = await responseWeedEraser.json()
-        setResultadoWeedEraser(dataWeedEraser)
-        setArchivoTemporal(dataWeedEraser.imagenUrl)
-        setImagenUrl(`/api/imagen-temporal/${dataWeedEraser.imagenUrl}`)
-
-        // Análisis FAUM
+        // Paso 3A: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFaum.ok) {
-          throw new Error("Error en el análisis de FAUM")
+          throw new Error("Error en el análisis de FAUM");
         }
+        const dataFaum: FaumResult = await responseFaum.json();
+        setResultadoFaum(dataFaum);
+        currentArchivoTemporal = dataFaum.imagen; // Se espera que el back-end retorne el nombre del nuevo archivo en "imagen"
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(`${window.location.origin}${currentArchivoTemporal}`); // Update image URL
 
-        const dataFaum: FaumResult = await responseFaum.json()
-        setResultadoFaum(dataFaum)
-        setArchivoTemporal(dataFaum.imagenUrl)
-        setImagenUrl(`/api/imagen-temporal/${dataFaum.imagenUrl}`)
       } else {
-        // Análisis FAUM para cultivos Preemergentes
+        // Para cultivos Preemergentes, se hace primero FAUM y luego el filtrado de formaciones
+        // Paso 2B: Análisis FAUM
         const responseFaum = await fetch("/api/apply-faum", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFaum.ok) {
-          throw new Error("Error en el análisis de FAUM")
+          throw new Error("Error en el análisis de FAUM");
         }
+        const dataFaum: FaumResult = await responseFaum.json();
+        setResultadoFaum(dataFaum);
+        currentArchivoTemporal = dataFaum.imagen;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(`${window.location.origin}${currentArchivoTemporal}`); // Update image URL
 
-        const dataFaum: FaumResult = await responseFaum.json()
-        setResultadoFaum(dataFaum)
-        setArchivoTemporal(dataFaum.imagenUrl)
-        setImagenUrl(`/api/imagen-temporal/${dataFaum.imagenUrl}`)
-
-        // Filtrado de formaciones para cultivos Preemergentes
+        // Paso 3B: Filtrado de formaciones
         const responseFilterFormations = await fetch("/api/filter-formations", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ archivoTemporal }),
-        })
-
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoTemporal: currentArchivoTemporal }),
+        });
         if (!responseFilterFormations.ok) {
-          throw new Error("Error en el filtrado de formaciones")
+          throw new Error("Error en el filtrado de formaciones");
         }
-
-        const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json()
-        setResultadoFilterFormations(dataFilterFormations)
-        setArchivoTemporal(dataFilterFormations.imagenUrl)
-        setImagenUrl(`/api/imagen-temporal/${dataFilterFormations.imagenUrl}`)
+        const dataFilterFormations: FilterFormationsResult = await responseFilterFormations.json();
+        setResultadoFilterFormations(dataFilterFormations);
+        currentArchivoTemporal = dataFilterFormations.imagen;
+        setArchivoTemporal(currentArchivoTemporal);
+        setImagenUrl(`${window.location.origin}${currentArchivoTemporal}`); // Update image URL
       }
     } catch (error) {
-      console.error("Error al analizar la imagen:", error)
-      setErrorImagen(`Error al analizar la imagen: ${error instanceof Error ? error.message : String(error)}`)
+      console.error("Error al analizar la imagen:", error);
+      setErrorImagen(`Error al analizar la imagen: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setAnalizando(false)
+      setAnalizando(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -234,19 +225,22 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
           )}
           {imagenUrl && (
             <div className="mt-4">
-              <h3 className="text-lg font-semibold mb-2">Imagen Analizada:</h3>
+              <h3 className="text-lg font-semibold mb-2">Imagen Actual:</h3>
               <img
                 src={imagenUrl || "/placeholder.svg"}
                 alt="Imagen Actual"
                 className="max-w-full h-auto rounded-lg shadow-lg"
-                key={imagenUrl}
+                onError={(e) => {
+                  console.error("Error loading image:", e);
+                  setErrorImagen("Error al cargar la imagen. Por favor, intente de nuevo.");
+                }}
               />
               <div className="mt-4 space-x-4">
                 <Button
                   onClick={() => {
-                    setImagenUrl(null)
-                    setArchivoTemporal(null)
-                    resetearResultados()
+                    setImagenUrl(null);
+                    setArchivoTemporal(null);
+                    resetearResultados();
                   }}
                   variant="outline"
                 >
@@ -272,7 +266,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                 <>
                   {resultadoWeedEraser && (
                     <Alert variant="success" className="mt-4">
-                      <AlertTitle>Resultado de Weed Eraser</AlertTitle>
+                      <AlertTitle>Weed Eraser</AlertTitle>
                       <AlertDescription>
                         <p>{resultadoWeedEraser.resultado}</p>
                         <p>Porcentaje de malezas: {resultadoWeedEraser.porcentajeMalezas.toFixed(2)}%</p>
@@ -284,16 +278,13 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                   )}
                   {resultadoFaum && (
                     <Alert variant="info" className="mt-4">
-                      <AlertTitle>Resultado de FAUM</AlertTitle>
+                      <AlertTitle>FAUM</AlertTitle>
                       <AlertDescription>
-                        <p>{resultadoFaum.resultado}</p>
-                        <p>Índice de vegetación: {resultadoFaum.indiceVegetacion.toFixed(2)}</p>
-                        <p>Recomendaciones:</p>
-                        <ul>
-                          {resultadoFaum.recomendaciones.map((rec, index) => (
-                            <li key={index}>{rec}</li>
-                          ))}
-                        </ul>
+                        <p>{resultadoFaum.resultado || "No hay información adicional"}</p>
+                        <p>
+                          Imagen resultante: {resultadoFaum.metadata.nombre_archivo} <br />
+                          Fecha: {resultadoFaum.metadata.fecha} - Hora: {resultadoFaum.metadata.hora}
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -302,22 +293,16 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                 <>
                   {resultadoFaum && (
                     <Alert variant="info" className="mt-4">
-                      <AlertTitle>Resultado de FAUM</AlertTitle>
+                      <AlertTitle>FAUM</AlertTitle>
                       <AlertDescription>
                         <p>{resultadoFaum.resultado}</p>
-                        <p>Índice de vegetación: {resultadoFaum.indiceVegetacion.toFixed(2)}</p>
-                        <p>Recomendaciones:</p>
-                        <ul>
-                          {resultadoFaum.recomendaciones.map((rec, index) => (
-                            <li key={index}>{rec}</li>
-                          ))}
-                        </ul>
+                        {/* Se omiten propiedades no retornadas */}
                       </AlertDescription>
                     </Alert>
                   )}
                   {resultadoFilterFormations && (
                     <Alert variant="success" className="mt-4">
-                      <AlertTitle>Resultado del Filtrado de Formaciones</AlertTitle>
+                      <AlertTitle>Filtrado de Formaciones</AlertTitle>
                       <AlertDescription>
                         <p>{resultadoFilterFormations.resultado}</p>
                         {resultadoFilterFormations.metadatos && (
@@ -343,8 +328,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
-export default SimplifiedAnalizadorMalezas
-
+export default SimplifiedAnalizadorMalezas;
