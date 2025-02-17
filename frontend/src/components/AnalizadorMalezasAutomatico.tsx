@@ -17,9 +17,15 @@ interface WeedEraserResult extends AnalysisResult {
   areasCriticas?: Array<{ x: number; y: number; tamaño: number }>
 }
 
-interface FaumResult extends AnalysisResult {
-  indiceVegetacion: number
-  recomendaciones: string[]
+interface FaumResult {
+  imagen: string; // El nombre del archivo o URL de la imagen resultante
+  metadata: {
+    fecha: string;
+    hora: string;
+    timestamp: string;
+    nombre_archivo: string;
+  };
+  resultado?: string; // Puedes usarlo para un mensaje, si lo devuelve
 }
 
 interface FilterFormationsResult extends AnalysisResult {
@@ -279,14 +285,12 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
                     <Alert variant="info" className="mt-4">
                       <AlertTitle>Resultado de FAUM</AlertTitle>
                       <AlertDescription>
-                        <p>{resultadoFaum.resultado}</p>
-                        <p>Índice de vegetación: {resultadoFaum.indiceVegetacion.toFixed(2)}</p>
-                        <p>Recomendaciones:</p>
-                        <ul>
-                          {resultadoFaum.recomendaciones.map((rec, index) => (
-                            <li key={index}>{rec}</li>
-                          ))}
-                        </ul>
+                        <p>{resultadoFaum.resultado || "No hay información adicional"}</p>
+                        <p>
+                          Imagen resultante: {resultadoFaum.metadata.nombre_archivo}{" "}
+                          <br />
+                          Fecha: {resultadoFaum.metadata.fecha} - Hora: {resultadoFaum.metadata.hora}
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
