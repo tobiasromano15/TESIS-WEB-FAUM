@@ -112,6 +112,14 @@ def get_user_upload_folder():
     os.makedirs(user_folder, exist_ok=True)       # Crea la carpeta del usuario si no existe
     os.makedirs(upload_folder, exist_ok=True)     # Crea la carpeta 'tmp' del usuario si no existe
     return upload_folder
+def get_user_upload_folder_tmp():
+    base_path = './user_storage'
+    user_folder = os.path.join(base_path, str(current_user.id))
+    upload_folder = os.path.join(user_folder, 'tmp')
+    # Crear las carpetas si no existen
+    os.makedirs(user_folder, exist_ok=True)       # Crea la carpeta del usuario si no existe
+    os.makedirs(upload_folder, exist_ok=True)     # Crea la carpeta 'tmp' del usuario si no existe
+    return upload_folder
 def get_user_upload_folder_root():
     base_path = './user_storage'
     user_folder = os.path.join(base_path, str(current_user.id))
@@ -516,7 +524,10 @@ def weed_eraser():
             return jsonify({'error': 'Archivo temporal no encontrado'}), 404
 
         # Process the image with weed-eraser
-        result = process_weed_eraser(input_path)
+        img = cv2.imread(input_path)
+        if img is None:
+            return jsonify({'error': 'Error al leer la imagen'}), 400
+        result = process_weed_eraser(img)
         
         # Save the processed image
         output_filename = f"weed_eraser_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
@@ -546,7 +557,7 @@ def filter_formations():
         if not archivo_temporal:
             return jsonify({'error': 'No se proporcionó archivo temporal'}), 400
 
-        user_folder = get_user_upload_folder()
+        user_folder = get_user_upload_folder_tmp()
         input_path = os.path.join(user_folder, archivo_temporal)
         
         if not os.path.exists(input_path):
@@ -583,7 +594,7 @@ def cargar_imagen_temporal():
 
         if imagen:
             # Create a temporary file
-            user_folder = get_user_upload_folder()
+            user_folder = get_user_upload_folder_tmp()
             _, temp_path = tempfile.mkstemp(dir=user_folder, suffix='.jpg')
             
             # Save the uploaded image to the temporary file
