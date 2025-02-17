@@ -9,9 +9,11 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # Paso 1: Checkout del código
+      # Paso 1: Checkout del código con fetch-depth: 2 para tener HEAD^ disponible
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
 
       # Paso 2: Log in to DockerHub
       - name: Log in to DockerHub
@@ -20,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Paso 3: Construir y subir imágenes para cada servicio
+      # Paso 3: Construir y subir imágenes para cada servicio (solo si han cambiado)
       - name: Build and Push Docker Images
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -47,6 +49,7 @@ jobs:
               echo "No se detectaron cambios en $SERVICE. Saltando build..."
             fi
           done
+
   deploy:
     # Este job se ejecutará una vez finalizado "build-and-push" correctamente
     needs: [build-and-push]
@@ -61,8 +64,7 @@ jobs:
           # Si usas un puerto distinto a 22, agrégalo así: port: 22
           script: |
             # Moverse al directorio donde tengas tu docker-compose.yml
-            # Ajusta la ruta según tu Droplet
-            cd /home  # <- Ejemplo: carpeta donde tengas tu docker-compose.yml
+            cd /home  # Ajusta esta ruta según tu Droplet
 
             # Traer las últimas imágenes (latest) que acabas de publicar
             docker-compose pull
