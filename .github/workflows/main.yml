@@ -68,6 +68,6 @@ jobs:
 
             # Traer las últimas imágenes (latest) que acabas de publicar
             docker-compose pull
-
+            docker-compose down --rmi all --volumes --remove-orphans
             # Arrancar los contenedores (o actualizarlos si ya existían)
             docker-compose up -d --remove-orphans

@@ -372,6 +372,7 @@ def delete_item(item_path):
     return jsonify({'message': 'Item deleted successfully'}), 200
 # Analizador -----------------------------------------------------------------
 @app.route('/clasificar-cultivo', methods=['POST'])
+@login_required
 def clasificar_cultivo():
     try:
         # Leer 'archivoTemporal' en lugar de 'imagen'
@@ -379,7 +380,7 @@ def clasificar_cultivo():
         
         # Construir la ruta en la carpeta temporal (o donde lo guardes)
         # Ejemplo usando la misma lógica que /weed-eraser:
-        user_folder = get_user_upload_folder()
+        user_folder = get_user_upload_folder_tmp()
         input_path = os.path.join(user_folder, archivo_temporal)
         
         if not os.path.exists(input_path):
@@ -407,10 +408,10 @@ def apply_faum():
     try:
         app.logger.info("Received request at /apply-faum")
         data = request.json
-        imagen_data = data.get('imagen')
+        imagen_data = data.get('archivoTemporal')
         app.logger.info("Imagen data retrieved successfully")
 
-        UPLOAD_FOLDER = get_user_upload_folder()
+        UPLOAD_FOLDER = get_user_upload_folder_tmp()
         app.logger.info(f"Upload folder: {UPLOAD_FOLDER}")
 
         if not imagen_data:
@@ -517,7 +518,7 @@ def weed_eraser():
         if not archivo_temporal:
             return jsonify({'error': 'No se proporcionó archivo temporal'}), 400
 
-        user_folder = get_user_upload_folder()
+        user_folder = get_user_upload_folder_tmp()
         input_path = os.path.join(user_folder, archivo_temporal)
         
         if not os.path.exists(input_path):
