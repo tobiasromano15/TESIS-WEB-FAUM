@@ -49,10 +49,14 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
 
   const getImageUrl = (filename: string) => {
     if (!filename) return null
-    // Si el filename ya es una URL completa, la devolvemos
+    // If it's a full path, return as is
     if (filename.startsWith("/")) return filename
-    // Si no, asumimos que es un nombre de archivo temporal
-    return `/imagen-temporal/${filename}`
+    // If it's a temporary file, use the correct path
+    if (filename.startsWith("tmp")) {
+      return `/api/imagen-temporal/${filename}`
+    }
+    // For processed images, use the correct path
+    return `/api/imagen-analizada/${filename}`
   }
 
   const manejarCargaImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +81,7 @@ const SimplifiedAnalizadorMalezas: React.FC = () => {
 
         const data = await response.json()
         setArchivoTemporal(data.archivoTemporal)
-        setImagenUrl(data.imagenUrl)
+        setImagenUrl(getImageUrl(data.archivoTemporal))
       } catch (error) {
         console.error("Error al cargar la imagen:", error)
         setErrorImagen("Error al cargar la imagen. Por favor, intente con otra.")
