@@ -3,46 +3,40 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - main # Cambia esto al branch que prefieras
+      - main 
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # Paso 1: Checkout del código con fetch-depth: 2 para tener HEAD^ disponible
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
-      # Paso 2: Log in to DockerHub
+
       - name: Log in to DockerHub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Paso 3: Construir y subir imágenes para cada servicio (solo si han cambiado)
+
       - name: Build and Push Docker Images
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
-          # Lista de servicios a evaluar
           SERVICES=("backend" "frontend")
 
-          # Obtener la lista de archivos modificados en el último commit (o entre dos commits)
           changed_files=$(git diff --name-only HEAD^ HEAD)
 
           for SERVICE in "${SERVICES[@]}"; do
-            # Revisar si algún archivo dentro del directorio del servicio ha cambiado
             if echo "$changed_files" | grep -q "^${SERVICE}/"; then
               IMAGE_NAME="$DOCKER_USERNAME/$SERVICE"
               echo "Se detectaron cambios en $SERVICE. Construyendo y subiendo imagen..."
               
-              # Construir la imagen
               docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest ./$SERVICE
               
-              # Subir la imagen
               docker push $IMAGE_NAME:${{ github.sha }}
               docker push $IMAGE_NAME:latest
             else
@@ -51,7 +45,6 @@ jobs:
           done
 
   deploy:
-    # Este job se ejecutará una vez finalizado "build-and-push" correctamente
     needs: [build-and-push]
     runs-on: ubuntu-latest
     steps:
@@ -61,13 +54,8 @@ jobs:
           host: 157.245.132.144
           username: root
           password: Tesis123.Edutobi
-          # Si usas un puerto distinto a 22, agrégalo así: port: 22
           script: |
-            # Moverse al directorio donde tengas tu docker-compose.yml
-            cd /home  # Ajusta esta ruta según tu Droplet
-
-            # Traer las últimas imágenes (latest) que acabas de publicar
+            cd /home
             docker-compose pull
             docker-compose down --rmi all --volumes --remove-orphans
-            # Arrancar los contenedores (o actualizarlos si ya existían)
             docker-compose up -d --remove-orphans
