@@ -462,7 +462,7 @@ def apply_faum():
         masked_filename = f'output_mask.jpeg'
         masked_filepath = os.path.join(UPLOAD_FOLDER, masked_filename)
         app.logger.info(f"Mask applied and saved: {masked_filename}")
-        clean_tmp = limpiar_carpeta_tmp_excluding_mask()
+        #clean_tmp = limpiar_carpeta_tmp_excluding_mask()
         print(clean_tmp)
         # Step 3: Return response
         return jsonify({
