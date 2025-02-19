@@ -452,7 +452,7 @@ def apply_faum():
         app.logger.info(f"Image analysis completed: {analyzed_filename}")
 
         # Step 2: Apply mask
-        mascaras_activas = [3]
+        mascaras_activas = [2,3]
         color_fondo = '000000'
         transparencia = 50
         mascaras_str = ",".join(map(str, mascaras_activas))

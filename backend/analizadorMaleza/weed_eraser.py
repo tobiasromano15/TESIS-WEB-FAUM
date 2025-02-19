@@ -93,71 +93,130 @@ def connect_plants_by_stripe_and_y_distance(img, plant_objects, stripe_width, ma
 
             # Conectar si están dentro del rango de distancia en Y
             if y_distance <= max_y_distance:
-                cv.line(img, center1, center2, (255, 0, 0), 2)  # Dibujar línea azul
+                cv.line(img, center1, center2, (0, 0, 0), 2)  # Dibujar línea azul
 
     return img
-
-def dilatacion(img):
+def obtener_rango_tierra_drone(img, lower_green=np.array([35, 25, 25]), upper_green=np.array([85, 255, 255]),
+                               lower_percentile=5, upper_percentile=95):
     """
-    Elimina píxeles verdes adyacentes a las líneas azules mediante dilatación iterativa.
-
-    :param img: Imagen original en BGR con las líneas azules dibujadas.
-    :return: Imagen con píxeles verdes eliminados.
+    Determina un rango aproximado de marrones (tierra) en una imagen de plantaciones tomadas con drone.
+    
+    Se asume que la vegetación es de color verde, por lo que se filtran dichos píxeles. Sobre el resto,
+    se calculan los percentiles (por defecto 5 y 95) de cada canal HSV para aproximar el rango de tonos de tierra.
+    
+    :param img: Imagen en BGR.
+    :param lower_green: Límite inferior para detectar vegetación en HSV.
+    :param upper_green: Límite superior para detectar vegetación en HSV.
+    :param lower_percentile: Percentil inferior para el cálculo.
+    :param upper_percentile: Percentil superior para el cálculo.
+    :return: Tuple (lower_brown, upper_brown) en formato HSV, o (None, None) si no se encuentran píxeles.
     """
-    print("DILATACIÓN")
+    # Convertir la imagen a espacio HSV
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    
+    # Crear una máscara para la vegetación (verde)
+    mascara_vegetacion = cv.inRange(hsv, lower_green, upper_green)
+    
+    # Invertir la máscara para obtener los píxeles que NO son vegetación (posible tierra y otros elementos)
+    mascara_no_vegetacion = cv.bitwise_not(mascara_vegetacion)
+    
+    # Obtener los índices de los píxeles fuera de la vegetación
+    indices = np.where(mascara_no_vegetacion > 0)
+    
+    # Verificar que se encontraron píxeles; de lo contrario, se retorna None
+    if len(indices[0]) == 0:
+        print("No se encontraron píxeles fuera de la vegetación.")
+        return None, None
+    
+    # Extraer los valores de cada canal para los píxeles no vegetados
+    h_vals = hsv[:, :, 0][indices]
+    s_vals = hsv[:, :, 1][indices]
+    v_vals = hsv[:, :, 2][indices]
+    
+    # Calcular los percentiles para cada canal
+    lower_h = np.percentile(h_vals, lower_percentile)
+    lower_s = np.percentile(s_vals, lower_percentile)
+    lower_v = np.percentile(v_vals, lower_percentile)
+    
+    upper_h = np.percentile(h_vals, upper_percentile)
+    upper_s = np.percentile(s_vals, upper_percentile)
+    upper_v = np.percentile(v_vals, upper_percentile)
+    
+    lower_brown = np.array([lower_h, lower_s, lower_v], dtype=np.uint8)
+    upper_brown = np.array([upper_h, upper_s, upper_v], dtype=np.uint8)
+    
+    print("Rango de marrones detectado (no vegetación):", lower_brown, upper_brown)
+    return lower_brown, upper_brown
 
+def dilatacion_con_marrones_random(img, lower_brown, upper_brown):
+    """
+    Reemplaza los píxeles verdes adyacentes a las líneas azules por valores aleatorios 
+    dentro del rango marrón definido (en HSV).
+
+    :param img: Imagen original en BGR.
+    :param lower_brown: Valor inferior en HSV para la gama de marrones (numpy array).
+    :param upper_brown: Valor superior en HSV para la gama de marrones (numpy array).
+    :return: Imagen resultante con los píxeles modificados.
+    """
+    print("DILATACIÓN CON MARRONES RANDOM")
+    
     # Convertir la imagen de BGR a HSV
     imagen_hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-
-    # Definir el rango de color para los verdes (en HSV)
-    lower_green = np.array([35, 25, 25])  # Ajustado para incluir verdes más oscuros
+    lower_brown, upper_brown = obtener_rango_tierra_drone(img)
+    # Definir el rango para detectar píxeles verdes (ajustable según necesidad)
+    lower_green = np.array([35, 25, 25])
     upper_green = np.array([85, 255, 255])
-
+    
     # Crear la máscara para los píxeles verdes
     mascara_verde = cv.inRange(imagen_hsv, lower_green, upper_green)
-
-    # Definir el rango de color para las líneas azules (en BGR)
-    lower_blue = np.array([255, 0, 0])  # Azul puro
-    upper_blue = np.array([255, 0, 0])  # Azul puro
-
-    # Crear la máscara para las líneas azules
+    
+    # Asumir que las líneas azules son de un color fijo (en este ejemplo, se asume azul puro representado como [0,0,0])
+    lower_blue = np.array([0, 0, 0])  # Azul puro
+    upper_blue = np.array([0, 0, 0])  # Azul puro
     mascara_azul = cv.inRange(img, lower_blue, upper_blue)
-
+    
     # Expandir la máscara azul para incluir áreas adyacentes
     kernel = np.ones((3, 3), np.uint8)
     mascara_azul_dilatada = cv.dilate(mascara_azul, kernel, iterations=2)
-
+    
     # Encontrar los píxeles verdes adyacentes a las líneas azules dilatadas
     mascara_interseccion_verde = cv.bitwise_and(mascara_verde, mascara_azul_dilatada)
-
-    # Inicializar la máscara final de píxeles que deben eliminarse (verdes adyacentes a las líneas azules)
-    mascara_final_eliminar = mascara_interseccion_verde.copy()
-
-    # Eliminación en cadena con límite de iteraciones
+    
+    # Inicializar la máscara final de píxeles a modificar (verdes adyacentes a las líneas azules)
+    mascara_final_modificar = mascara_interseccion_verde.copy()
+    
+    # Dilatación iterativa para propagar la zona a modificar
     max_iteraciones = 5000
     iteraciones = 0
     cambio = True
 
     while cambio and iteraciones < max_iteraciones:
         iteraciones += 1
-        # Encontrar los píxeles verdes adyacentes a los ya eliminados
-        mascara_dilatada = cv.dilate(mascara_final_eliminar, kernel, iterations=1)
-        nuevos_puntos_a_eliminar = cv.bitwise_and(mascara_verde, mascara_dilatada)
-
-        # Verificar si hay nuevos píxeles para eliminar
-        if cv.countNonZero(nuevos_puntos_a_eliminar) == 0:
+        mascara_dilatada = cv.dilate(mascara_final_modificar, kernel, iterations=1)
+        nuevos_puntos = cv.bitwise_and(mascara_verde, mascara_dilatada)
+        
+        if cv.countNonZero(nuevos_puntos) == 0:
             cambio = False
         else:
-            # Agregar los nuevos puntos a la máscara final de eliminación
-            mascara_final_eliminar = cv.bitwise_or(mascara_final_eliminar, nuevos_puntos_a_eliminar)
-
-    # Invertir la máscara final para borrar los píxeles verdes adyacentes a las líneas azules
-    mascara_invertida = cv.bitwise_not(mascara_final_eliminar)
-
-    # Aplicar la máscara invertida a la imagen original para eliminar los píxeles verdes adyacentes
-    imagen_sin_verdes_adyacentes = cv.bitwise_and(img, img, mask=mascara_invertida)
-
-    return imagen_sin_verdes_adyacentes
+            mascara_final_modificar = cv.bitwise_or(mascara_final_modificar, nuevos_puntos)
+    
+    # Crear una imagen de valores aleatorios en HSV dentro del rango marrón
+    alto, ancho = img.shape[:2]
+    # Generar aleatoriamente cada canal de forma independiente dentro de su rango
+    h_random = np.random.randint(lower_brown[0], upper_brown[0] + 1, size=(alto, ancho), dtype=np.uint8)
+    s_random = np.random.randint(lower_brown[1], upper_brown[1] + 1, size=(alto, ancho), dtype=np.uint8)
+    v_random = np.random.randint(lower_brown[2], upper_brown[2] + 1, size=(alto, ancho), dtype=np.uint8)
+    rand_hsv = cv.merge([h_random, s_random, v_random])
+    
+    # Convertir la imagen aleatoria de HSV a BGR
+    rand_bgr = cv.cvtColor(rand_hsv, cv.COLOR_HSV2BGR)
+    
+    # Crear una copia de la imagen original y reemplazar los píxeles indicados en la máscara 
+    # por los valores aleatorios en marrón
+    resultado = img.copy()
+    resultado[mascara_final_modificar > 0] = rand_bgr[mascara_final_modificar > 0]
+    
+    return resultado
 
 
 def process_weed_eraser(input):
