@@ -148,7 +148,7 @@ def obtener_rango_tierra_drone(img, lower_green=np.array([35, 25, 25]), upper_gr
     print("Rango de marrones detectado (no vegetación):", lower_brown, upper_brown)
     return lower_brown, upper_brown
 
-def dilatacion(img, lower_brown, upper_brown):
+def dilatacion(img):
     """
     Reemplaza los píxeles verdes adyacentes a las líneas azules por valores aleatorios 
     dentro del rango marrón definido (en HSV).
