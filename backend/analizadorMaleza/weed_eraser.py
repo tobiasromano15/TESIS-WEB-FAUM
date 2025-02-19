@@ -150,29 +150,35 @@ def obtener_rango_tierra_drone(img, lower_green=np.array([35, 25, 25]), upper_gr
 
 def dilatacion(img):
     """
-    Reemplaza los píxeles verdes adyacentes a las líneas azules por valores aleatorios 
-    dentro del rango marrón definido (en HSV).
+    Reemplaza los píxeles verdes adyacentes a las líneas azules por valores aleatorios
+    dentro de un rango estrecho alrededor del promedio del rango marrón definido (en HSV).
 
     :param img: Imagen original en BGR.
     :param lower_brown: Valor inferior en HSV para la gama de marrones (numpy array).
     :param upper_brown: Valor superior en HSV para la gama de marrones (numpy array).
+    :param offset_H: Desviación permitida en el canal H (por defecto 5, para H en rango 0-179).
+    :param offset_S: Desviación permitida en el canal S (por defecto 15, para S en rango 0-255).
+    :param offset_V: Desviación permitida en el canal V (por defecto 15, para V en rango 0-255).
     :return: Imagen resultante con los píxeles modificados.
     """
-    print("DILATACIÓN CON MARRONES RANDOM")
+    print("DILATACIÓN CON MARRONES RANDOM (RANGO ESTRECHO)")
     
     # Convertir la imagen de BGR a HSV
     imagen_hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-    lower_brown, upper_brown = obtener_rango_tierra_drone(img)
+    
     # Definir el rango para detectar píxeles verdes (ajustable según necesidad)
     lower_green = np.array([35, 25, 25])
     upper_green = np.array([85, 255, 255])
-    
+    lower_brown, upper_brown = obtener_rango_tierra_drone(img)
+    offset_H=3
+    offset_S=10 
+    offset_V=10
     # Crear la máscara para los píxeles verdes
     mascara_verde = cv.inRange(imagen_hsv, lower_green, upper_green)
     
-    # Asumir que las líneas azules son de un color fijo (en este ejemplo, se asume azul puro representado como [0,0,0])
-    lower_blue = np.array([0, 0, 0])  # Azul puro
-    upper_blue = np.array([0, 0, 0])  # Azul puro
+    # Asumir que las líneas azules son de un color fijo (ejemplo: azul puro representado aquí como [0, 0, 0])
+    lower_blue = np.array([0, 0, 0])
+    upper_blue = np.array([0, 0, 0])
     mascara_azul = cv.inRange(img, lower_blue, upper_blue)
     
     # Expandir la máscara azul para incluir áreas adyacentes
@@ -189,7 +195,7 @@ def dilatacion(img):
     max_iteraciones = 5000
     iteraciones = 0
     cambio = True
-
+    
     while cambio and iteraciones < max_iteraciones:
         iteraciones += 1
         mascara_dilatada = cv.dilate(mascara_final_modificar, kernel, iterations=1)
@@ -200,19 +206,37 @@ def dilatacion(img):
         else:
             mascara_final_modificar = cv.bitwise_or(mascara_final_modificar, nuevos_puntos)
     
-    # Crear una imagen de valores aleatorios en HSV dentro del rango marrón
+    # Calcular el promedio del rango de marrones en HSV
+    brown_avg = ((lower_brown.astype(int) + upper_brown.astype(int)) // 2).astype(np.uint8)
+    
+    # Definir un rango estrecho alrededor del promedio para cada canal,
+    # asegurando que se mantenga dentro de los límites válidos.
+    # Para H (0-179) y para S y V (0-255)
+    narrow_lower_H = np.clip(brown_avg[0] - offset_H, 0, 179)
+    narrow_upper_H = np.clip(brown_avg[0] + offset_H, 0, 179)
+    
+    narrow_lower_S = np.clip(brown_avg[1] - offset_S, 0, 255)
+    narrow_upper_S = np.clip(brown_avg[1] + offset_S, 0, 255)
+    
+    narrow_lower_V = np.clip(brown_avg[2] - offset_V, 0, 255)
+    narrow_upper_V = np.clip(brown_avg[2] + offset_V, 0, 255)
+    
+    # Obtener dimensiones de la imagen
     alto, ancho = img.shape[:2]
-    # Generar aleatoriamente cada canal de forma independiente dentro de su rango
-    h_random = np.random.randint(lower_brown[0], upper_brown[0] + 1, size=(alto, ancho), dtype=np.uint8)
-    s_random = np.random.randint(lower_brown[1], upper_brown[1] + 1, size=(alto, ancho), dtype=np.uint8)
-    v_random = np.random.randint(lower_brown[2], upper_brown[2] + 1, size=(alto, ancho), dtype=np.uint8)
+    
+    # Generar valores aleatorios para cada canal dentro del rango estrecho
+    h_random = np.random.randint(narrow_lower_H, narrow_upper_H + 1, size=(alto, ancho), dtype=np.uint8)
+    s_random = np.random.randint(narrow_lower_S, narrow_upper_S + 1, size=(alto, ancho), dtype=np.uint8)
+    v_random = np.random.randint(narrow_lower_V, narrow_upper_V + 1, size=(alto, ancho), dtype=np.uint8)
+    
+    # Combinar los canales para obtener la imagen en HSV con valores aleatorios
     rand_hsv = cv.merge([h_random, s_random, v_random])
     
     # Convertir la imagen aleatoria de HSV a BGR
     rand_bgr = cv.cvtColor(rand_hsv, cv.COLOR_HSV2BGR)
     
-    # Crear una copia de la imagen original y reemplazar los píxeles indicados en la máscara 
-    # por los valores aleatorios en marrón
+    # Crear una copia de la imagen original y reemplazar los píxeles indicados en la máscara
+    # por los valores aleatorios dentro del rango estrecho.
     resultado = img.copy()
     resultado[mascara_final_modificar > 0] = rand_bgr[mascara_final_modificar > 0]
     

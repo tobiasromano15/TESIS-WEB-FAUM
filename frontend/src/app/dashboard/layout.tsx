@@ -11,8 +11,8 @@ import { logout } from '../services/api'
 import {frame} from "framer-motion";
 
 const menuItems = [
-  { name: 'Analizador de Malezas Manual', icon: LeafIcon, href: '/dashboard/analizador-malezas' },
-  { name: 'Analizador de Malezas Automatico', icon: Database, href: '/dashboard/analizador-malezas-automatico' },
+  { name: 'Faum WEB', icon: LeafIcon, href: '/dashboard/analizador-malezas' },
+  { name: 'Malezas', icon: Database, href: '/dashboard/analizador-malezas-automatico' },
   { name: 'ODM - Ortomosaico', icon: Image, href: '/dashboard/odm' },
   { name: 'Mapa de Prescripcion', icon: MapPin, href: '/dashboard/mapa-prescripcion' },
   { name: 'Almacenamiento', icon: Database, href: '/dashboard/almacenamiento' },
