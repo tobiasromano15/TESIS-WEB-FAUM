@@ -51,7 +51,7 @@ jobs:
       - name: Deploy to DigitalOcean
         uses: appleboy/ssh-action@master
         with:
-          host: 157.245.132.144
+          host: 24.144.124.224
           username: root
           password: Tesis123.Edutobi
           script: |
